@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Solana代币自动发盘工具</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="dashboard-container">
+    <header>
+      <h1>Solana代币自动发盘工具</h1>
+    </header>
+
+    <div class="dashboard-layout">
+      <!-- 左上：操作按钮区域 -->
+      <div class="panel operation-panel">
+        <h2>开盘选项</h2>
+        <div class="operation-buttons">
+          <button class="op-btn" id="ca-clone-btn">CA仿盘</button>
+          <button class="op-btn" id="custom-token-btn">自定义开盘</button>
+          <button class="op-btn" id="random-token-btn">随机仿盘</button>
+        </div>
+
+        <div class="token-address-input" id="ca-input-container">
+          <label for="ca-address">合约地址</label>
+          <div class="input-with-button">
+            <input type="text" id="ca-address" placeholder="输入CA地址..." class="full-width-input">
+            <button class="btn primary" id="ca-clear-btn">清除</button>
+          </div>
+          <button class="btn primary" id="ca-stop-btn">停止监听</button>
+        </div>
+        
+        <!-- 主要操作按钮 -->
+        <div class="main-actions">
+          <button class="action-btn create-btn" id="one-click-create">一键开盘</button>
+          <button class="action-btn sell-btn" id="one-click-sell">一键卖出</button>
+        </div>
+      </div>
+
+      <!-- 右上：系统日志 -->
+      <div class="panel log-panel">
+        <h2>系统日志</h2>
+        <div class="log-container" id="system-log">
+          <!-- 日志内容会动态添加 -->
+        </div>
+      </div>
+
+      <!-- 左下：开盘配置 -->
+      <div class="panel config-panel">
+        <h2>开盘钱包配置</h2>
+        <div class="config-container">
+          <div class="config-item">
+            <label for="token-amount">开盘代币数量</label>
+            <div class="input-with-unit">
+              <input type="number" id="token-amount" value="21" min="1">
+              <span class="unit">个</span>
+            </div>
+          </div>
+          <div class="config-item">
+            <label for="sol-per-token">每个代币买入</label>
+            <div class="input-with-unit">
+              <input type="number" id="sol-per-token" value="0.5" min="0.1" step="0.1">
+              <span class="unit">SOL</span>
+            </div>
+          </div>
+          <div class="config-item">
+            <label for="hold-time">持仓时间</label>
+            <div class="input-with-unit">
+              <input type="number" id="hold-time" value="30" min="1">
+              <span class="unit">分钟</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 右下：盘内交易监控 -->
+      <div class="panel trade-panel">
+        <h2>盘内交易监控</h2>
+        <div class="trade-stats">
+          <div class="stat-card">
+            <div class="stat-title">买入</div>
+            <div id="total-buy-sol" class="stat-value">0 SOL</div>
+            <div id="total-buy-count" class="stat-count">0笔</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-title">卖出</div>
+            <div id="total-sell-sol" class="stat-value">0 SOL</div>
+            <div id="total-sell-count" class="stat-count">0笔</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-title">净买入</div>
+            <div id="net-buy-sol" class="stat-value">0 SOL</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-title">进度</div>
+            <div class="progress-bar-container">
+              <div id="progress-bar" class="progress-bar" style="width: 0%"></div>
+            </div>
+            <div id="progress-percentage" class="stat-count">0%</div>
+          </div>
+        </div>
+        <div class="trade-records">
+          <h3>交易记录</h3>
+          <div id="trade-records-list" class="trade-records-list">
+            <div class="empty-state">
+              <i class="fas fa-chart-line"></i>
+              <p>暂无交易记录</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 代币详情模态框 -->
+    <div class="token-details-modal" id="token-details-modal">
+      <div class="modal-content">
+        <span class="close">&times;</span>
+        <h2 id="modal-token-name">代币详情</h2>
+        <div class="token-details-grid">
+          <div class="token-image">
+            <img id="modal-token-image" src="" alt="代币图片">
+          </div>
+          <div class="token-info">
+            <p><strong>符号：</strong> <span id="modal-token-symbol"></span></p>
+            <p><strong>Mint地址：</strong> <span id="modal-token-mint"></span></p>
+            <p><strong>发现时间：</strong> <span id="modal-token-discovered"></span></p>
+            <p><strong>描述：</strong> <span id="modal-token-description"></span></p>
+            <div class="token-links">
+              <a id="modal-token-twitter" href="#" target="_blank" class="social-link twitter"><i class="fab fa-twitter"></i> Twitter</a>
+              <a id="modal-token-telegram" href="#" target="_blank" class="social-link telegram"><i class="fab fa-telegram"></i> Telegram</a>
+              <a id="modal-token-website" href="#" target="_blank" class="social-link website"><i class="fas fa-globe"></i> 网站</a>
+            </div>
+          </div>
+        </div>
+        <div class="modal-actions" id="modal-actions">
+          <!-- 动态生成的按钮 -->
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.2/socket.io.min.js"></script>
+  <script src="app.js"></script>
+</body>
+</html> 

@@ -1,0 +1,2043 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Pump 交易助手</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f5f7fa;
+            color: #2c3e50;
+            line-height: 1.6;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        h1 {
+            font-size: 24px;
+            margin-bottom: 20px;
+            color: #2c3e50;
+        }
+
+        /* 选项卡样式 */
+        .tabs {
+            background: #fff;
+            border-radius: 8px 8px 0 0;
+            padding: 0 20px;
+            border-bottom: 1px solid #e2e8f0;
+        }
+
+        .tab-button {
+            padding: 15px 25px;
+            border: none;
+            background: none;
+            font-size: 14px;
+            font-weight: 500;
+            color: #64748b;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            position: relative;
+            margin-right: 10px;
+        }
+
+        .tab-button:hover {
+            color: #3498db;
+        }
+
+        .tab-button.active {
+            color: #3498db;
+        }
+
+        .tab-button.active::after {
+            content: '';
+            position: absolute;
+            bottom: -1px;
+            left: 0;
+            width: 100%;
+            height: 2px;
+            background-color: #3498db;
+        }
+
+        /* 内容区域样式 */
+        .tab-content {
+            display: none;
+            background: #fff;
+            padding: 30px;
+            border-radius: 0 0 8px 8px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+        }
+
+        /* 主页样式 */
+        #main {
+            text-align: center;
+        }
+
+        .main-buttons {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 20px;
+            margin: 30px 0;
+        }
+
+        .main-button {
+            padding: 15px 30px;
+            font-size: 16px;
+            font-weight: 500;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            color: white;
+        }
+
+        .create-button {
+            background-color: #3498db;
+        }
+
+        .sell-button {
+            background-color: #e74c3c;
+        }
+
+        .settings-button {
+            background-color: #2ecc71;
+        }
+
+        .main-button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+
+        /* 配置表单样式 */
+        .wallet-config {
+            background: #f8fafc;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 15px;
+            border: 1px solid #e2e8f0;
+        }
+
+        .wallet-config:hover {
+            border-color: #3498db;
+        }
+
+        .wallet-config label {
+            display: block;
+            font-weight: 500;
+            margin-bottom: 10px;
+            color: #334155;
+        }
+
+        .wallet-inputs {
+            display: flex;
+            gap: 15px;
+            align-items: center;
+        }
+
+        .key-input {
+            flex: 1;
+            padding: 10px;
+            border: 1px solid #e2e8f0;
+            border-radius: 6px;
+            font-family: monospace;
+            font-size: 14px;
+            background-color: #f8fafc;
+        }
+
+        .amount-input {
+            width: 120px;
+            padding: 10px;
+            border: 1px solid #e2e8f0;
+            border-radius: 6px;
+            text-align: right;
+        }
+
+        .amount-input::-webkit-inner-spin-button {
+            opacity: 1;
+            height: 20px;
+        }
+
+        /* 钱包管理样式 */
+        .wallet-actions {
+            display: flex;
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+
+        .action-button {
+            padding: 12px 24px;
+            font-size: 14px;
+            font-weight: 500;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            color: white;
+        }
+
+        .generate-button { background-color: #2ecc71; }
+        .distribute-button { background-color: #f39c12; }
+        .collect-button { background-color: #e74c3c; }
+
+        .action-button:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+
+        /* 保存按钮样式 */
+        .save-button {
+            width: 100%;
+            padding: 12px;
+            background-color: #3498db;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+            margin-top: 20px;
+            transition: all 0.3s ease;
+        }
+
+        .save-button:hover {
+            background-color: #2980b9;
+            transform: translateY(-1px);
+        }
+
+        /* Mint地址显示 */
+        .mint-address {
+            background: #f8fafc;
+            padding: 15px;
+            border-radius: 6px;
+            margin: 20px 0;
+            font-family: monospace;
+            word-break: break-all;
+        }
+
+        .mint-label {
+            font-weight: 500;
+            color: #64748b;
+            margin-bottom: 5px;
+        }
+
+        .wallet-section {
+            margin-bottom: 40px;
+        }
+
+        .section-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+
+        .section-header h3 {
+            font-size: 18px;
+            color: #2c3e50;
+            margin: 0;
+        }
+
+        .wallet-actions {
+            display: flex;
+            gap: 10px;
+        }
+
+        .action-button {
+            padding: 8px 16px;
+            border: none;
+            border-radius: 6px;
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            color: white;
+        }
+
+        .action-button i {
+            font-size: 14px;
+        }
+
+        .generate-button { background-color: #2ecc71; }
+        .generate-button:hover { background-color: #27ae60; }
+
+        .distribute-button { background-color: #3498db; }
+        .distribute-button:hover { background-color: #2980b9; }
+
+        .collect-button { background-color: #e74c3c; }
+        .collect-button:hover { background-color: #c0392b; }
+
+        .wallet-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            gap: 20px;
+        }
+
+        .wallet-card {
+            background: white;
+            border-radius: 8px;
+            border: 1px solid #e2e8f0;
+            overflow: hidden;
+            transition: all 0.3s ease;
+        }
+
+        .wallet-card:hover {
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            transform: translateY(-2px);
+        }
+
+        .wallet-card-header {
+            padding: 15px;
+            background: #f8fafc;
+            border-bottom: 1px solid #e2e8f0;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .wallet-name {
+            font-weight: 500;
+            color: #2c3e50;
+        }
+
+        .wallet-balance {
+            color: #2ecc71;
+            font-weight: 500;
+        }
+
+        .wallet-card-body {
+            padding: 15px;
+        }
+
+        .wallet-address {
+            font-family: monospace;
+            font-size: 13px;
+            color: #64748b;
+            word-break: break-all;
+        }
+
+        /* 弹窗样式 */
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0,0,0,0.5);
+            z-index: 1000;
+        }
+
+        .modal-content {
+            position: relative;
+            background-color: #fff;
+            margin: 10% auto;
+            padding: 0;
+            width: 500px;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+
+        .modal-header {
+            padding: 15px 20px;
+            border-bottom: 1px solid #e2e8f0;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .modal-header h3 {
+            margin: 0;
+            color: #2c3e50;
+        }
+
+        .close {
+            font-size: 24px;
+            font-weight: bold;
+            color: #666;
+            cursor: pointer;
+        }
+
+        .modal-body {
+            padding: 20px;
+        }
+
+        .modal-footer {
+            padding: 15px 20px;
+            border-top: 1px solid #e2e8f0;
+            display: flex;
+            justify-content: flex-end;
+            gap: 10px;
+        }
+
+        .form-group {
+            margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .form-group label {
+            width: 80px;
+        }
+
+        .form-group input {
+            width: 120px;
+            padding: 8px;
+            border: 1px solid #e2e8f0;
+            border-radius: 4px;
+        }
+
+        .modal-button {
+            padding: 8px 16px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: 500;
+        }
+
+        .modal-button.confirm {
+            background-color: #3498db;
+            color: white;
+        }
+
+        .modal-button.cancel {
+            background-color: #e2e8f0;
+            color: #2c3e50;
+        }
+
+        /* 进度条样式 */
+        .progress-container {
+            width: 100%;
+            height: 20px;
+            background-color: #f0f0f0;
+            border-radius: 10px;
+            margin: 20px 0;
+            overflow: hidden;
+        }
+
+        .progress-bar {
+            width: 0%;
+            height: 100%;
+            background-color: #3498db;
+            transition: width 0.3s ease;
+        }
+
+        .progress-text {
+            text-align: center;
+            margin-bottom: 10px;
+            font-weight: bold;
+        }
+
+        .progress-details {
+            max-height: 200px;
+            overflow-y: auto;
+            padding: 10px;
+            background-color: #f8f9fa;
+            border-radius: 5px;
+            font-family: monospace;
+            font-size: 12px;
+        }
+
+        .total-amount {
+            margin-top: 15px;
+            padding: 10px;
+            background-color: #f8fafc;
+            border-radius: 4px;
+            text-align: right;
+            font-weight: 500;
+        }
+
+        .mint-input-container {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+
+        .mint-input {
+            flex: 1;
+            padding: 8px 12px;
+            font-family: monospace;
+            font-size: 14px;
+            border: 1px solid #e2e8f0;
+            border-radius: 6px;
+            background-color: #fff;
+            color: #2c3e50;
+            width: 100%;
+        }
+
+        .mint-clear-btn {
+            padding: 6px 12px;
+            background-color: #e74c3c;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 12px;
+        }
+
+        .pump-button {
+            background-color: #f39c12;
+        }
+
+        .log-container {
+            margin: 20px 0;
+            background: #fff;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        .log-header {
+            padding: 12px 20px;
+            border-bottom: 1px solid #eee;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .log-header h3 {
+            margin: 0;
+            color: #2c3e50;
+            font-size: 16px;
+        }
+
+        .clear-log-btn {
+            padding: 6px 12px;
+            background: #e74c3c;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 12px;
+            transition: all 0.3s ease;
+        }
+
+        .clear-log-btn:hover {
+            background: #c0392b;
+        }
+
+        .log-content {
+            padding: 15px;
+            max-height: 300px;
+            overflow-y: auto;
+            font-family: 'Consolas', monospace;
+            font-size: 13px;
+            line-height: 1.5;
+            color: #34495e;
+            background: #f8f9fa;
+        }
+
+        /* 不同类型日志的样式 */
+        .log-info {
+            color: #2980b9;
+        }
+
+        .log-success {
+            color: #27ae60;
+        }
+
+        .log-error {
+            color: #e74c3c;
+        }
+
+        .log-warning {
+            color: #f39c12;
+        }
+
+        /* 添加时间戳样式 */
+        .log-timestamp {
+            color: #95a5a6;
+            margin-right: 8px;
+            font-size: 12px;
+        }
+
+        /* 添加滚动条样式 */
+        .log-content::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        .log-content::-webkit-scrollbar-track {
+            background: #f1f1f1;
+            border-radius: 4px;
+        }
+
+        .log-content::-webkit-scrollbar-thumb {
+            background: #bdc3c7;
+            border-radius: 4px;
+        }
+
+        .log-content::-webkit-scrollbar-thumb:hover {
+            background: #95a5a6;
+        }
+
+        /* 容器布局 */
+        .info-container {
+            display: flex;
+            gap: 20px;
+            margin: 20px 0;
+            padding-right: 20px; /* 与按钮右对齐 */
+        }
+
+        /* 日志容器样式 */
+        .log-container {
+            flex: 1;
+            background: #fff;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        /* 交易信息容器样式 */
+        .trade-info-container {
+            flex: 1;
+            background: #fff;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        /* 通用头部样式 */
+        .log-header, .trade-info-header {
+            padding: 12px 20px;
+            border-bottom: 1px solid #eee;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .log-header h3, .trade-info-header h3 {
+            margin: 0;
+            color: #2c3e50;
+            font-size: 16px;
+        }
+
+        /* 通用内容区域样式 */
+        .log-content, .trade-info-content {
+            padding: 15px;
+            height: 300px;
+            overflow-y: auto;
+            font-family: 'Consolas', monospace;
+            font-size: 13px;
+            line-height: 1.5;
+            color: #34495e;
+            background: #f8f9fa;
+        }
+
+        /* 交易信息特定样式 */
+        .trade-info-entry {
+            padding: 8px;
+            margin-bottom: 8px;
+            border-radius: 4px;
+            background: #fff;
+            border-left: 4px solid #3498db;
+        }
+
+        .trade-info-entry.trade-info-buy {
+            border-left-color: #2ecc71;
+        }
+
+        .trade-info-entry.trade-info-sell {
+            border-left-color: #e74c3c;
+        }
+
+        .trade-info-time {
+            color: #95a5a6;
+            font-size: 12px;
+            margin-bottom: 4px;
+        }
+
+        .trade-info-details {
+            font-size: 13px;
+            line-height: 1.4;
+        }
+
+        .our-wallet-tag {
+            display: inline-block;
+            background: #f39c12;
+            color: white;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-size: 12px;
+            margin-left: 8px;
+        }
+
+        .monitor-btn {
+            padding: 6px 12px;
+            background: #2ecc71;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 12px;
+            transition: all 0.3s ease;
+        }
+
+        .monitor-btn.monitoring {
+            background: #e74c3c;
+        }
+
+        .monitor-btn:hover {
+            opacity: 0.9;
+        }
+
+        /* 主页布局样式 */
+        #main {
+            padding: 20px;
+        }
+
+        /* 按钮区域样式 */
+        .main-buttons {
+            margin-bottom: 20px;
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 15px;
+        }
+
+        /* 代币地址区域样式 */
+        .mint-address {
+            background: #fff;
+            padding: 15px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+            margin-bottom: 20px;
+        }
+
+        /* 信息显示区域布局 */
+        .info-container {
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+            gap: 20px;
+            height: calc(100vh - 300px);
+            min-height: 400px;
+            max-height: 600px;  /* 添加最大高度限制 */
+        }
+
+        /* 日志和交易信息容器统一样式 */
+        .log-container, .trade-info-container {
+            background: #fff;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+            display: flex;
+            flex-direction: column;
+            height: 100%;
+            min-width: 0;
+            overflow: hidden;  /* 防止内容溢出 */
+        }
+
+        /* 统一头部样式 */
+        .log-header, .trade-info-header {
+            padding: 12px 20px;
+            background: #fff;
+            border-bottom: 1px solid #e2e8f0;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            z-index: 1;
+        }
+
+        .log-header h3, .trade-info-header h3 {
+            margin: 0;
+            color: #2c3e50;
+            font-size: 16px;
+            font-weight: 500;
+        }
+
+        /* 统一内容区域样式 */
+        .log-content, .trade-info-content {
+            flex: 1;
+            overflow-y: auto;
+            overflow-x: hidden;
+            padding: 15px;
+            background: #f8fafc;
+            font-family: 'Consolas', monospace;
+            font-size: 13px;
+            line-height: 1.5;
+            word-wrap: break-word;
+        }
+
+        /* 统一条目样式 */
+        .log-entry, .trade-info-entry {
+            padding: 8px 12px;
+            margin-bottom: 8px;
+            border-radius: 4px;
+            background: #fff;
+            border-left: 3px solid #3498db;
+            word-break: break-all;  /* 确保长文本换行 */
+        }
+
+        /* 统一清除按钮样式 */
+        .clear-log-btn {
+            padding: 4px 12px;
+            background: #e74c3c;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 12px;
+            transition: all 0.3s ease;
+        }
+
+        .clear-log-btn:hover {
+            background: #c0392b;
+        }
+
+        /* 统一滚动条样式 */
+        .log-content::-webkit-scrollbar,
+        .trade-info-content::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        .log-content::-webkit-scrollbar-track,
+        .trade-info-content::-webkit-scrollbar-track {
+            background: #f1f1f1;
+            border-radius: 3px;
+        }
+
+        .log-content::-webkit-scrollbar-thumb,
+        .trade-info-content::-webkit-scrollbar-thumb {
+            background: #cbd5e0;
+            border-radius: 3px;
+        }
+
+        .log-content::-webkit-scrollbar-thumb:hover,
+        .trade-info-content::-webkit-scrollbar-thumb:hover {
+            background: #a0aec0;
+        }
+
+        /* 交易信息特定样式 */
+        .trade-info-main {
+            margin-bottom: 6px;
+        }
+
+        .trade-info-details {
+            font-size: 12px;
+            color: #666;
+            padding-top: 6px;
+            border-top: 1px solid #edf2f7;
+        }
+
+        /* 移除主页滚动条 */
+        #main {
+            padding: 20px;
+            overflow: hidden;  /* 移除滚动条 */
+        }
+
+        /* 状态标签样式 */
+        .our-wallet-tag {
+            display: inline-block;
+            background: #f39c12;
+            color: white;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-size: 12px;
+            margin-left: 8px;
+        }
+
+        /* 日志类型样式 */
+        .log-entry.log-success { border-left-color: #2ecc71; }
+        .log-entry.log-error { border-left-color: #e74c3c; }
+        .log-entry.log-warning { border-left-color: #f1c40f; }
+
+        /* 交易类样式 */
+        .trade-info-entry.trade-info-buy { border-left-color: #2ecc71; }
+        .trade-info-entry.trade-info-sell { border-left-color: #e74c3c; }
+
+        /* 在现有样式中添加 */
+        .gmgn-btn {
+            padding: 6px 12px;
+            background-color: #2ecc71;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 12px;
+            margin: 0 4px;
+        }
+
+        .gmgn-btn:hover {
+            background-color: #27ae60;
+        }
+
+        .lapan-wallet-grid {
+            display: grid;
+            grid-template-columns: repeat(5, 1fr);
+            gap: 10px;
+            margin-bottom: 20px;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+
+        .lapan-wallet-item {
+            background: #f8fafc;
+            padding: 10px;
+            border-radius: 6px;
+            border: 1px solid #e2e8f0;
+        }
+
+        .lapan-wallet-item label {
+            display: block;
+            margin-bottom: 5px;
+            font-size: 12px;
+            color: #4a5568;
+        }
+
+        .lapan-wallet-item input[type="checkbox"] {
+            margin-right: 5px;
+        }
+
+        .lapan-wallet-item input[type="number"] {
+            width: 100%;
+            padding: 4px;
+            border: 1px solid #e2e8f0;
+            border-radius: 4px;
+            font-size: 12px;
+        }
+
+        .distribute-actions {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px 0;
+            border-top: 1px solid #e2e8f0;
+        }
+
+        .quick-set {
+            display: flex;
+            gap: 10px;
+        }
+
+        .quick-set input {
+            width: 120px;
+            padding: 6px;
+            border: 1px solid #e2e8f0;
+            border-radius: 4px;
+        }
+
+        .quick-set button {
+            padding: 6px 12px;
+            background: #3498db;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+
+        .modal-footer {
+            padding: 15px 20px;
+            border-top: 1px solid #e2e8f0;
+            display: flex;
+            justify-content: flex-end;
+            gap: 10px;
+        }
+
+        .modal-button {
+            padding: 8px 16px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: 500;
+        }
+
+        .modal-button.confirm {
+            background-color: #3498db;
+            color: white;
+        }
+
+        .modal-button.confirm:hover {
+            background-color: #2980b9;
+        }
+
+        .modal-button.cancel {
+            background-color: #e2e8f0;
+            color: #2c3e50;
+        }
+
+        .modal-button.cancel:hover {
+            background-color: #cbd5e0;
+        }
+
+        /* 表单组样式 */
+        .form-group {
+            margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .form-group label {
+            width: 120px;
+        }
+
+        .form-group input {
+            width: 100px;
+            padding: 8px;
+            border: 1px solid #e2e8f0;
+            border-radius: 4px;
+        }
+
+        .total-amount {
+            margin-top: 20px;
+            padding: 10px;
+            background-color: #f8fafc;
+            border-radius: 4px;
+            text-align: right;
+            font-weight: 500;
+        }
+
+        .lapan-settings {
+            display: flex;
+            gap: 20px;
+            padding: 10px;
+            background: #fff;
+            border-radius: 6px;
+        }
+
+        .settings-group {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .settings-group label {
+            color: #666;
+            min-width: 100px;
+        }
+
+        .settings-group input {
+            padding: 6px;
+            border: 1px solid #e2e8f0;
+            border-radius: 4px;
+            text-align: center;
+        }
+
+        .settings-group span {
+            color: #666;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Pump 交易助手</h1>
+        
+        <!-- 选项卡 -->
+        <div class="tabs">
+            <button class="tab-button active" onclick="openTab(event, 'main')">主页</button>
+            <button class="tab-button" onclick="openTab(event, 'config')">创建配置</button>
+            <button class="tab-button" onclick="openTab(event, 'lapan')">拉盘钱包</button>
+            <button class="tab-button" onclick="openTab(event, 'wallet')">钱包管理</button>
+        </div>
+
+        <!-- 主页 -->
+        <div id="main" class="tab-content" style="display: block;">
+            <!-- 操作按钮区域 -->
+            <div class="main-buttons">
+                <button class="main-button create-button" onclick="createAndBuy()">开盘 (创建并买入)</button>
+                <button class="main-button sell-button" onclick="sell()">卖出</button>
+                <button class="main-button pump-button" onclick="lapan()">拉盘</button>
+            </div>
+            
+            <!-- 代币地址区域 -->
+            <div class="mint-address">
+                <div class="mint-label">代币地址:</div>
+                <div class="mint-input-container">
+                    <input type="text" 
+                           id="mintAddressText" 
+                           class="mint-input" 
+                           placeholder="输入或等待自动生成的 Mint 地址"
+                           oninput="handleMintAddressChange(event)"
+                           value="">
+                    <button class="mint-clear-btn" onclick="clearMintAddress()">清除</button>
+                    <button class="gmgn-btn" onclick="openGMGN()">GMGN</button>
+                    <button class="monitor-btn" onclick="toggleMonitor()">开始监听</button>
+                </div>
+            </div>
+
+            <!-- 拉盘设置区域 -->
+            <div class="mint-address">
+                <div class="mint-label">拉盘设置:</div>
+                <div class="lapan-settings">
+                    <div class="settings-group">
+                        <label>延迟时间(秒):</label>
+                        <input type="number" 
+                               id="minDelay" 
+                               min="0.1" 
+                               max="10" 
+                               step="0.1" 
+                               value="2" 
+                               style="width: 80px;">
+                        <span>至</span>
+                        <input type="number" 
+                               id="maxDelay" 
+                               min="0.1" 
+                               max="10" 
+                               step="0.1" 
+                               value="3" 
+                               style="width: 80px;">
+                    </div>
+                    <div class="settings-group">
+                        <label>每次钱包数:</label>
+                        <input type="number" 
+                               id="minWallets" 
+                               min="1" 
+                               max="5" 
+                               value="1" 
+                               style="width: 80px;">
+                        <span>至</span>
+                        <input type="number" 
+                               id="maxWallets" 
+                               min="1" 
+                               max="5" 
+                               value="3" 
+                               style="width: 80px;">
+                    </div>
+                    <div class="settings-group">
+                        <label>每笔金额(SOL):</label>
+                        <input type="number" 
+                               id="minAmount" 
+                               min="0.001" 
+                               max="10" 
+                               step="0.001" 
+                               value="0.1" 
+                               style="width: 80px;">
+                        <span>至</span>
+                        <input type="number" 
+                               id="maxAmount" 
+                               min="0.001" 
+                               max="10" 
+                               step="0.001" 
+                               value="0.3" 
+                               style="width: 80px;">
+                    </div>
+                </div>
+            </div>
+
+            <!-- 信息显示区域 -->
+            <div class="info-container">
+                <!-- 日志区域 -->
+                <div class="log-container">
+                    <div class="log-header">
+                        <h3>操作日志</h3>
+                        <button onclick="clearLog()" class="clear-log-btn">清除日志</button>
+                    </div>
+                    <div id="log-content" class="log-content"></div>
+                </div>
+
+                <!-- 盘内交易信息区域 -->
+                <div class="trade-info-container">
+                    <div class="trade-info-header">
+                        <h3>盘内交易信息</h3>
+                        <button onclick="clearTradeInfo()" class="clear-log-btn">清除信息</button>
+                    </div>
+                    <div id="tradeInfo" class="trade-info-content"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 创建配置 -->
+        <div id="config" class="tab-content">
+            <div class="wallet-config">
+                <label>钱包1 (创建者)</label>
+                <div class="wallet-inputs">
+                    <input type="text" id="wallet1-key" class="key-input" readonly>
+                    <input type="number" id="wallet1-amount" class="amount-input" value="0" readonly style="background-color: #f5f5f5; cursor: not-allowed;" step="0.001">
+                    <span>SOL</span>
+                </div>
+            </div>
+            <div class="wallet-config">
+                <label>钱包2</label>
+                <div class="wallet-inputs">
+                    <input type="text" id="wallet2-key" class="key-input" readonly>
+                    <input type="number" id="wallet2-amount" class="amount-input" step="0.001" min="0" onchange="validateAmount(this)">
+                    <span>SOL</span>
+                </div>
+            </div>
+            <div class="wallet-config">
+                <label>钱包3</label>
+                <div class="wallet-inputs">
+                    <input type="text" id="wallet3-key" class="key-input" readonly>
+                    <input type="number" id="wallet3-amount" class="amount-input" step="0.001" min="0" onchange="validateAmount(this)">
+                    <span>SOL</span>
+                </div>
+            </div>
+            <div class="wallet-config">
+                <label>钱包4</label>
+                <div class="wallet-inputs">
+                    <input type="text" id="wallet4-key" class="key-input" readonly>
+                    <input type="number" id="wallet4-amount" class="amount-input" step="0.001" min="0" onchange="validateAmount(this)">
+                    <span>SOL</span>
+                </div>
+            </div>
+            <div class="wallet-config">
+                <label>钱包5</label>
+                <div class="wallet-inputs">
+                    <input type="text" id="wallet5-key" class="key-input" readonly>
+                    <input type="number" id="wallet5-amount" class="amount-input" step="0.001" min="0" onchange="validateAmount(this)">
+                    <span>SOL</span>
+                </div>
+            </div>
+            <button class="save-button" onclick="saveConfig()">保存配置</button>
+        </div>
+
+        <!-- 拉盘配置 -->
+        <div id="lapan" class="tab-content">
+            <div id="lapanConfigs">
+                <!-- 动态生成的拉盘钱包配置 -->
+            </div>
+            <button class="save-button" onclick="saveLapanConfig()">保存配置</button>
+        </div>
+
+        <!-- 钱包管理 -->
+        <div id="wallet" class="tab-content">
+            <!-- 创建和买入钱包部分 -->
+            <div class="wallet-section">
+                <div class="section-header">
+                    <h3>创建和买入钱包</h3>
+                    <div class="wallet-actions">
+                        <button class="action-button generate-button" onclick="generateAllCreateWallets()">
+                            <i class="fas fa-key"></i> 一键生成买入钱包(2-5)
+                        </button>
+                        <button class="action-button distribute-button" onclick="showDistributeModal()">
+                            <i class="fas fa-share-alt"></i> 分发至买入钱包(2-5)
+                        </button>
+                        <button class="action-button collect-button" onclick="collectFromCreateWallets()">
+                            <i class="fas fa-compress-arrows-alt"></i> 归集买入钱包(2-5)
+                        </button>
+                    </div>
+                </div>
+                <div class="wallet-grid">
+                    <div class="wallet-card">
+                        <div class="wallet-card-header">
+                            <span class="wallet-name">包1 (创建者)</span>
+                            <span class="wallet-balance" id="wallet1-balance">0.000 SOL</span>
+                        </div>
+                        <div class="wallet-card-body">
+                            <div class="wallet-address" id="wallet1-address">加载中...</div>
+                        </div>
+                    </div>
+                    <div class="wallet-card">
+                        <div class="wallet-card-header">
+                            <span class="wallet-name">钱包2</span>
+                            <span class="wallet-balance" id="wallet2-balance">0.000 SOL</span>
+                        </div>
+                        <div class="wallet-card-body">
+                            <div class="wallet-address" id="wallet2-address">加载中...</div>
+                        </div>
+                    </div>
+                    <div class="wallet-card">
+                        <div class="wallet-card-header">
+                            <span class="wallet-name">钱包3</span>
+                            <span class="wallet-balance" id="wallet3-balance">0.000 SOL</span>
+                        </div>
+                        <div class="wallet-card-body">
+                            <div class="wallet-address" id="wallet3-address">加载中...</div>
+                        </div>
+                    </div>
+                    <div class="wallet-card">
+                        <div class="wallet-card-header">
+                            <span class="wallet-name">钱包4</span>
+                            <span class="wallet-balance" id="wallet4-balance">0.000 SOL</span>
+                        </div>
+                        <div class="wallet-card-body">
+                            <div class="wallet-address" id="wallet4-address">加载中...</div>
+                        </div>
+                    </div>
+                    <div class="wallet-card">
+                        <div class="wallet-card-header">
+                            <span class="wallet-name">钱包5</span>
+                            <span class="wallet-balance" id="wallet5-balance">0.000 SOL</span>
+                        </div>
+                        <div class="wallet-card-body">
+                            <div class="wallet-address" id="wallet5-address">加载中...</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 拉盘钱包部分 -->
+            <div class="wallet-section">
+                <div class="section-header">
+                    <h3>拉盘钱包</h3>
+                    <div class="wallet-actions">
+                        <button class="action-button generate-button" onclick="generateAllLapanWallets()">
+                            <i class="fas fa-key"></i> 一键生成拉盘钱包(1-100)
+                        </button>
+                        <button class="action-button distribute-button" onclick="showDistributeLapanModal()">
+                            <i class="fas fa-share-alt"></i> 分发至拉盘钱包(1-100)
+                        </button>
+                        <button class="action-button collect-button" onclick="collectFromLapanWallets()">
+                            <i class="fas fa-compress-arrows-alt"></i> 归集拉盘钱包(1-100)
+                        </button>
+                    </div>
+                </div>
+                <div class="wallet-grid" id="lapan-wallet-list">
+                    <!-- 动态生成的拉盘钱包卡片 -->
+                </div>
+            </div>
+        </div>
+
+        <!-- 分发弹窗 -->
+        <div id="distributeModal" class="modal">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h3>分发SOL</h3>
+                    <span class="close">&times;</span>
+                </div>
+                <div class="modal-body">
+                    <div class="distribute-form">
+                        <div class="form-group">
+                            <label>钱2</label>
+                            <input type="number" id="distribute-amount-2" step="0.01" min="0" value="0.1" oninput="updateDistributeTotal()">
+                            <span>SOL</span>
+                        </div>
+                        <div class="form-group">
+                            <label>钱包3</label>
+                            <input type="number" id="distribute-amount-3" step="0.01" min="0" value="0.1" oninput="updateDistributeTotal()">
+                            <span>SOL</span>
+                        </div>
+                        <div class="form-group">
+                            <label>钱包4</label>
+                            <input type="number" id="distribute-amount-4" step="0.01" min="0" value="0.1" oninput="updateDistributeTotal()">
+                            <span>SOL</span>
+                        </div>
+                        <div class="form-group">
+                            <label>钱包5</label>
+                            <input type="number" id="distribute-amount-5" step="0.01" min="0" value="0.1" oninput="updateDistributeTotal()">
+                            <span>SOL</span>
+                        </div>
+                        <div class="total-amount">
+                            总计: <span id="total-distribute-amount">0.4</span> SOL
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button class="modal-button cancel">取消</button>
+                    <button class="modal-button confirm">确认分发</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- 加进度条弹窗 -->
+        <div id="progressModal" class="modal">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h3>操作进度</h3>
+                </div>
+                <div class="modal-body">
+                    <div class="progress-container">
+                        <div class="progress-bar" id="progressBar"></div>
+                    </div>
+                    <div id="progressText" class="progress-text">准备中...</div>
+                    <div id="progressDetails" class="progress-details"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 修改拉盘分发弹窗 -->
+        <div id="distributeLapanModal" class="modal">
+            <div class="modal-content" style="width: 400px;">
+                <div class="modal-header">
+                    <h3>分发至拉盘钱包</h3>
+                    <span class="close">&times;</span>
+                </div>
+                <div class="modal-body">
+                    <div class="form-group">
+                        <label>每个钱包分发金额:</label>
+                        <input type="number" id="lapan-amount" step="0.001" min="0" value="0.100" oninput="updateLapanTotal()">
+                        <span>SOL</span>
+                    </div>
+                    <div class="form-group">
+                        <label>钱包数量:</label>
+                        <input type="number" id="lapan-wallet-count" min="1" max="25" value="5" oninput="updateLapanTotal()">
+                    </div>
+                    <div class="total-amount">
+                        总计需要: <span id="total-lapan-amount">0.5</span> SOL
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button class="modal-button cancel" onclick="closeLapanModal()">取消</button>
+                    <button class="modal-button confirm" onclick="confirmLapanDistribution()">确认分发</button>
+                </div>
+            </div>
+        </div>
+
+        <script>
+            const { ipcRenderer } = require('electron');
+
+            // 选项切换函数
+            function openTab(event, tabName) {
+                // 隐藏所有选项卡内容
+                const tabContents = document.getElementsByClassName('tab-content');
+                for (let content of tabContents) {
+                    content.style.display = 'none';
+                }
+
+                // 移除所有选项卡按的激活状态
+                const tabButtons = document.getElementsByClassName('tab-button');
+                for (let button of tabButtons) {
+                    button.classList.remove('active');
+                }
+
+                // 显示选中的选项卡内容
+                document.getElementById(tabName).style.display = 'block';
+                // 激活选中的选项卡按钮
+                event.currentTarget.classList.add('active');
+
+                // 如果切换到钱包管理选项卡，请求更新钱包信息
+                if (tabName === 'wallet') {
+                    ipcRenderer.send('request-wallet-info');
+                }
+            }
+
+            // 页面加载时显主页
+            document.addEventListener('DOMContentLoaded', () => {
+                // 初始化
+                generateLapanConfigs();
+                generateLapanWalletList();
+                
+                // 隐藏所有选项卡内容
+                const tabContents = document.getElementsByClassName('tab-content');
+                for (let content of tabContents) {
+                    content.style.display = 'none';
+                }
+                // 显示主页
+                document.getElementById('main').style.display = 'block';
+                
+                // 初始请求钱包信息
+                console.log('Initial wallet info request...');
+                ipcRenderer.send('get-wallet-info');
+                
+                // 设置自动更新钱包信息的定时器 - 改为 30 秒
+                setInterval(() => {
+                    if (document.getElementById('wallet').style.display === 'block') {
+                        console.log('Auto updating wallet info...');
+                        ipcRenderer.send('get-wallet-info');
+                    }
+                }, 30000); // 每30秒更新一次
+            });
+
+            // 统一的 IPC 事件监听器
+            const ipcHandlers = {
+                'wallet-info': (data) => {
+                    console.log('Received wallet info:', data);
+                    updateWalletDisplay(data);
+                },
+                
+                'distribution-progress': (data) => {
+                    updateProgressDisplay(data);
+                },
+                
+                'log': (message) => {
+                    updateLogDisplay(message);
+                },
+                
+                'mint-address': (address) => {
+                    document.getElementById('mintAddressText').textContent = address || '暂无';
+                }
+            };
+
+            // 注册所有 IPC 事件监听器
+            Object.entries(ipcHandlers).forEach(([channel, handler]) => {
+                ipcRenderer.on(channel, (event, data) => handler(data));
+            });
+
+            // 更新钱包显示
+            function updateWalletDisplay(data) {
+                // 更新创建和买入钱包信息
+                if (data.createWallets) {
+                    data.createWallets.forEach(wallet => {
+                        const index = wallet.index;
+                        const balanceElement = document.getElementById(`wallet${index}-balance`);
+                        const addressElement = document.getElementById(`wallet${index}-address`);
+                        
+                        if (balanceElement && addressElement) {
+                            balanceElement.textContent = `${wallet.balance.toFixed(3)} SOL`;
+                            addressElement.textContent = wallet.publicKey;
+                        }
+                    });
+                }
+                
+                // 更新拉盘钱包信息
+                if (data.lapanWallets) {
+                    data.lapanWallets.forEach(wallet => {
+                        const index = wallet.index;
+                        const balanceElement = document.getElementById(`lapan-wallet${index}-balance`);
+                        const addressElement = document.getElementById(`lapan-wallet${index}-address`);
+                        
+                        if (balanceElement && addressElement) {
+                            balanceElement.textContent = `${wallet.balance.toFixed(3)} SOL`;
+                            addressElement.textContent = wallet.publicKey;
+                        }
+                    });
+                }
+            }
+
+            // 更新进度显示
+            function updateProgressDisplay(data) {
+                const progressBar = document.getElementById('progressBar');
+                const progressText = document.getElementById('progressText');
+                const progressDetails = document.getElementById('progressDetails');
+                
+                if (progressBar && progressText && progressDetails) {
+                    progressBar.style.width = `${data.progress}%`;
+                    progressText.textContent = data.message;
+                    
+                    if (data.detail) {
+                        progressDetails.innerHTML += `${data.detail}<br>`;
+                        progressDetails.scrollTop = progressDetails.scrollHeight;
+                    }
+                    
+                    if (data.progress === 100) {
+                        setTimeout(() => {
+                            const modal = document.getElementById('progressModal');
+                            if (modal) {
+                                modal.style.display = 'none';
+                            }
+                            ipcRenderer.send('get-wallet-info');
+                        }, 2000);
+                    }
+                }
+            }
+
+            // 更新日志显示
+            function updateLogDisplay(message) {
+                const log = document.getElementById('log-content');
+                if (log) {
+                    log.innerHTML += message + '<br>';
+                    log.scrollTop = log.scrollHeight;
+                    
+                    // 检查消息中是否包含 Mint 地址
+                    if (message.startsWith('Mint:')) {
+                        const mintAddress = message.split('Mint:')[1].trim();
+                        document.getElementById('mintAddressText').textContent = mintAddress;
+                    }
+                }
+            }
+
+            function toggleVisibility(inputId) {
+                const input = document.getElementById(inputId);
+                input.type = input.type === 'password' ? 'text' : 'password';
+            }
+
+            function createAndBuy() {
+                console.log('Initiating create and buy...');
+                ipcRenderer.send('create-and-buy');
+            }
+
+            function sell() {
+                const mintAddress = document.getElementById('mintAddressText').value.trim();
+                if (!mintAddress) {
+                    alert('请先输入代币地址');
+                    return;
+                }
+                try {
+                    const { PublicKey } = require('@solana/web3.js');
+                    new PublicKey(mintAddress); // 验证地址格式
+                    ipcRenderer.send('sell', mintAddress);
+                } catch (error) {
+                    alert('请输入有效的代币地址');
+                }
+            }
+
+            function copyMintAddress() {
+                const mintAddress = document.getElementById('mintAddressText').textContent;
+                if (mintAddress !== '暂无') {
+                    navigator.clipboard.writeText(mintAddress).then(() => {
+                        const tooltip = document.getElementById('copyTooltip');
+                        tooltip.style.display = 'block';
+                        setTimeout(() => {
+                            tooltip.style.display = 'none';
+                        }, 1000);
+                    });
+                }
+            }
+
+            // 生成拉盘配置HTML
+            function generateLapanConfigs() {
+                const container = document.getElementById('lapanConfigs');
+                let html = '';
+                for (let i = 1; i <= 100; i++) {
+                    html += `
+                        <div class="wallet-config">
+                            <label>拉盘钱包${i}</label>
+                            <div class="wallet-inputs">
+                                <input type="text" id="lapan-key-${i}" class="key-input" readonly>
+                            </div>
+                        </div>
+                    `;
+                }
+                container.innerHTML = html;
+            }
+
+            // 验证金额输入
+            function validateAmount(input) {
+                // 创建者钱包固定为0
+                if (input.id === 'wallet1-amount') {
+                    input.value = "0.000";
+                    return;
+                }
+
+                let value = parseFloat(input.value);
+                
+                // 如果输入为空或0，设置为默认值0.1
+                if (!value || value <= 0) {
+                    input.value = "0.100";
+                    return;
+                }
+                
+                // 限制小数点后三位
+                value = Math.round(value * 1000) / 1000;
+                input.value = value.toFixed(3);
+            }
+
+            // 拉盘功能
+            function lapan() {
+                const mintAddress = document.getElementById('mintAddressText').value.trim();
+                if (!mintAddress) {
+                    alert('请先输入代币地址');
+                    return;
+                }
+                
+                try {
+                    const { PublicKey } = require('@solana/web3.js');
+                    new PublicKey(mintAddress); // 验证地址格式
+                    
+                    // 获取设置值
+                    const settings = {
+                        minWallets: parseInt(document.getElementById('minWallets').value),
+                        maxWallets: parseInt(document.getElementById('maxWallets').value),
+                        minAmount: parseFloat(document.getElementById('minAmount').value),
+                        maxAmount: parseFloat(document.getElementById('maxAmount').value)
+                    };
+                    
+                    // 验证设置
+                    if (settings.minWallets > settings.maxWallets) {
+                        alert('最小钱包数不能大于最大钱包数');
+                        return;
+                    }
+                    if (settings.maxWallets > 5) {
+                        alert('最大钱包数不能超过5个');
+                        return;
+                    }
+                    if (settings.minAmount > settings.maxAmount) {
+                        alert('最小金额不能大于最大金额');
+                        return;
+                    }
+                    
+                    // 发送设置到后端
+                    ipcRenderer.send('lapan', mintAddress, settings);
+                } catch (error) {
+                    alert('请输入有效的代币地址');
+                }
+            }
+
+            // 加载配置
+            ipcRenderer.on('load-config', (event, config) => {
+                if (config) {
+                    // 创建者钱包固定为0
+                    document.getElementById('wallet1-amount').value = "0.000";
+                    
+                    // 其他钱包加载实际配置值
+                    document.getElementById('wallet2-amount').value = config.wallet2Amount || "0.050";
+                    document.getElementById('wallet3-amount').value = config.wallet3Amount || "0.050";
+                    document.getElementById('wallet4-amount').value = config.wallet4Amount || "0.050";
+                    document.getElementById('wallet5-amount').value = config.wallet5Amount || "0.050";
+                    
+                    // 加载私钥
+                    document.getElementById('wallet1-key').value = config.wallet1Key || '';
+                    document.getElementById('wallet2-key').value = config.wallet2Key || '';
+                    document.getElementById('wallet3-key').value = config.wallet3Key || '';
+                    document.getElementById('wallet4-key').value = config.wallet4Key || '';
+                    document.getElementById('wallet5-key').value = config.wallet5Key || '';
+                }
+            });
+
+            ipcRenderer.on('load-lapan-config', (event, config) => {
+                console.log('收到拉盘配置:', config);  // 调试用
+                if (config) {
+                    for (let i = 1; i <= 100; i++) {
+                        const keyInput = document.getElementById(`lapan-key-${i}`);
+                        if (keyInput) {
+                            keyInput.value = config[`key${i}`] || '';
+                        }
+                    }
+                }
+            });
+
+            // 生成拉盘钱包列表
+            function generateLapanWalletList() {
+                const container = document.getElementById('lapan-wallet-list');
+                let html = '';
+                for (let i = 1; i <= 100; i++) {
+                    html += `
+                        <div class="wallet-card">
+                            <div class="wallet-card-header">
+                                <span class="wallet-name">拉盘钱包${i}</span>
+                                <span class="wallet-balance" id="lapan-wallet${i}-balance">0.000 SOL</span>
+                            </div>
+                            <div class="wallet-card-body">
+                                <div class="wallet-address" id="lapan-wallet${i}-address">加载中...</div>
+                            </div>
+                        </div>
+                    `;
+                }
+                container.innerHTML = html;
+            }
+
+            // 保存创建配置
+            function saveConfig() {
+                const config = {
+                    wallet1: document.getElementById('wallet1-amount').value,
+                    wallet2: document.getElementById('wallet2-amount').value,
+                    wallet3: document.getElementById('wallet3-amount').value,
+                    wallet4: document.getElementById('wallet4-amount').value,
+                    wallet5: document.getElementById('wallet5-amount').value
+                };
+                
+                console.log('Saving config:', config);
+                ipcRenderer.send('save-config', config);
+            }
+
+            // 保存拉盘配置
+            function saveLapanConfig() {
+                const config = {};
+                for (let i = 1; i <= 100; i++) {
+                    const amountInput = document.getElementById(`lapan-amount-${i}`);
+                    if (amountInput) {
+                        config[`lapanAmount${i}`] = amountInput.value;
+                    }
+                }
+                
+                console.log('Saving lapan config:', config);
+                ipcRenderer.send('save-lapan-config', config);
+            }
+
+            // 生成单个钱包
+            function generateWallet(index) {
+                ipcRenderer.send('generate-wallet', { type: 'create', index });
+            }
+
+            // 生成所有拉盘钱包
+            function generateAllLapanWallets() {
+                ipcRenderer.send('generate-wallet', { type: 'lapan' });
+            }
+
+            // 一键生成买入钱包
+            function generateAllCreateWallets() {
+                ipcRenderer.send('generate-all-create-wallets');
+            }
+
+            // 键生成拉盘钱包
+            function generateAllLapanWallets() {
+                ipcRenderer.send('generate-all-lapan-wallets');
+            }
+
+            // 分发至买入钱包
+            function distributeToCreateWallets() {
+                ipcRenderer.send('distribute-to-create-wallets');
+            }
+
+            // 归集买入钱包
+            function collectFromCreateWallets() {
+                console.log('Starting collection from create wallets...');
+                showProgressModal();
+                ipcRenderer.send('collect-from-create-wallets');
+            }
+
+            // 分发至拉盘钱包
+            function distributeToLapanWallets() {
+                ipcRenderer.send('distribute-to-lapan-wallets');
+            }
+
+            // 归集拉盘钱包
+            function collectFromLapanWallets() {
+                console.log('Starting collection from lapan wallets...');
+                showProgressModal();
+                ipcRenderer.send('collect-from-lapan-wallets');
+            }
+
+            // 显示分发弹窗
+            function showDistributeModal() {
+                const modal = document.getElementById('distributeModal');
+                modal.style.display = 'block';
+                
+                // 初始化计算总金额
+                updateDistributeTotal();
+
+                // 关闭按钮事件
+                const closeBtn = modal.querySelector('.close');
+                closeBtn.onclick = () => modal.style.display = 'none';
+
+                // 取消按钮事件
+                const cancelBtn = modal.querySelector('.cancel');
+                cancelBtn.onclick = () => modal.style.display = 'none';
+
+                // 确认按钮事件
+                const confirmBtn = modal.querySelector('.confirm');
+                confirmBtn.onclick = () => {
+                    const amounts = {
+                        wallet2: parseFloat(document.getElementById('distribute-amount-2').value),
+                        wallet3: parseFloat(document.getElementById('distribute-amount-3').value),
+                        wallet4: parseFloat(document.getElementById('distribute-amount-4').value),
+                        wallet5: parseFloat(document.getElementById('distribute-amount-5').value)
+                    };
+                    modal.style.display = 'none';
+                    showProgressModal();
+                    ipcRenderer.send('start-distribution', amounts);
+                };
+            }
+
+            // 显示进度弹窗
+            function showProgressModal() {
+                const modal = document.getElementById('progressModal');
+                modal.style.display = 'block';
+                document.getElementById('progressBar').style.width = '0%';
+                document.getElementById('progressText').textContent = '准备中...';
+                document.getElementById('progressDetails').innerHTML = '';
+            }
+
+            // 修改分发按钮点击事件
+            document.querySelector('.distribute-button').onclick = showDistributeModal;
+
+            // 显示拉盘分发弹窗
+            function showDistributeLapanModal() {
+                const modal = document.getElementById('distributeLapanModal');
+                modal.style.display = 'block';
+                updateLapanTotal(); // 初化总金额显示
+            }
+
+            // 更新总金额计算
+            function updateLapanTotal() {
+                const amount = parseFloat(document.getElementById('lapan-amount').value) || 0;
+                const count = parseInt(document.getElementById('lapan-wallet-count').value) || 0;
+                const total = amount * count;
+                document.getElementById('total-lapan-amount').textContent = total.toFixed(3);
+            }
+
+            // 确认分发
+            function confirmLapanDistribution() {
+                const amount = parseFloat(document.getElementById('lapan-amount').value);
+                const walletCount = parseInt(document.getElementById('lapan-wallet-count').value);
+                
+                if (!amount || amount <= 0) {
+                    alert('请输入有效的分发金额');
+                    return;
+                }
+                
+                if (!walletCount || walletCount <= 0 || walletCount > 100) {
+                    alert('请输入有效的钱包数量(1-100)');
+                    return;
+                }
+
+                // 关闭分发弹窗
+                closeLapanModal();
+                // 显示进度弹窗
+                showProgressModal();
+                // 发送分发请求
+                ipcRenderer.send('start-lapan-distribution', { 
+                    amount: amount,
+                    walletCount: walletCount
+                });
+            }
+
+            function closeLapanModal() {
+                document.getElementById('distributeLapanModal').style.display = 'none';
+            }
+
+            function handleMintAddressChange(event) {
+                // 仅用于更新输入值，不触发监听
+            }
+
+            function clearMintAddress() {
+                document.getElementById('mintAddressText').value = '';
+                if (isMonitoring) {
+                    toggleMonitor(); // 如果正在监听，停止监听
+                }
+            }
+
+            // 修改 mint-address 事件处理
+            ipcRenderer.on('mint-address', (event, address) => {
+                const mintInput = document.getElementById('mintAddressText');
+                if (address) {
+                    mintInput.value = address;
+                    // 如果有新的 mint 地址，自动开始监听
+                    if (!isMonitoring) {
+                        toggleMonitor();
+                    }
+                }
+            });
+
+            // 修改获取 mint 地址的方式
+            function getMintAddress() {
+                return document.getElementById('mintAddressText').value.trim();
+            }
+
+            // 更新分发总金额
+            function updateDistributeTotal() {
+                const amount2 = parseFloat(document.getElementById('distribute-amount-2').value) || 0;
+                const amount3 = parseFloat(document.getElementById('distribute-amount-3').value) || 0;
+                const amount4 = parseFloat(document.getElementById('distribute-amount-4').value) || 0;
+                const amount5 = parseFloat(document.getElementById('distribute-amount-5').value) || 0;
+                
+                const total = amount2 + amount3 + amount4 + amount5;
+                document.getElementById('total-distribute-amount').textContent = total.toFixed(2);
+            }
+
+            // 处理进度更新
+            ipcRenderer.on('distribution-progress', (event, data) => {
+                const progressBar = document.getElementById('progressBar');
+                const progressText = document.getElementById('progressText');
+                const progressDetails = document.getElementById('progressDetails');
+
+                progressBar.style.width = `${data.progress}%`;
+                progressText.textContent = data.message;
+                
+                if (data.detail) {
+                    progressDetails.innerHTML += `${data.detail}<br>`;
+                    progressDetails.scrollTop = progressDetails.scrollHeight;
+                }
+
+                if (data.progress === 100) {
+                    setTimeout(() => {
+                        document.getElementById('progressModal').style.display = 'none';
+                        // 刷新钱包信息
+                        ipcRenderer.send('get-wallet-info');
+                    }, 2000);
+                }
+            });
+
+            function addLog(message, type = 'info') {
+                const log = document.getElementById('log-content');
+                const timestamp = new Date().toLocaleTimeString();
+                const logEntry = document.createElement('div');
+                logEntry.className = `log-entry log-${type}`;
+                logEntry.innerHTML = `<span class="log-timestamp">[${timestamp}]</span> ${message}`;
+                log.appendChild(logEntry);
+                log.scrollTop = log.scrollHeight;
+            }
+
+            function clearLog() {
+                document.getElementById('log-content').innerHTML = '';
+            }
+
+            // 修改 IPC 监听器
+            ipcRenderer.on('log', (event, message) => {
+                let type = 'info';
+                if (message.includes('成功') || message.includes('完成')) {
+                    type = 'success';
+                } else if (message.includes('失败') || message.includes('错误')) {
+                    type = 'error';
+                } else if (message.includes('警告') || message.includes('注意')) {
+                    type = 'warning';
+                }
+                addLog(message, type);
+            });
+
+            // 修改交易信息监听器
+            ipcRenderer.on('trade-info', (event, data) => {
+                const tradeInfo = document.getElementById('tradeInfo');
+                if (tradeInfo) {
+                    const timestamp = new Date().toLocaleTimeString();
+                    const tradeEntry = document.createElement('div');
+                    tradeEntry.className = `trade-info-entry trade-info-${data.type}`;
+                    tradeEntry.innerHTML = `
+                        <div class="trade-info-time">[${timestamp}]</div>
+                        <div class="trade-info-details">${data.message}</div>
+                    `;
+                    tradeInfo.appendChild(tradeEntry);
+                    tradeInfo.scrollTop = tradeInfo.scrollHeight;
+                }
+            });
+
+            // 添加清除交易信息的函数
+            function clearTradeInfo() {
+                const tradeInfo = document.getElementById('tradeInfo');
+                if (tradeInfo) {
+                    tradeInfo.innerHTML = '';
+                }
+            }
+
+            let isMonitoring = false;
+
+            function toggleMonitor() {
+                const mintAddress = getMintAddress();
+                const btn = document.querySelector('.monitor-btn');
+                
+                if (!isMonitoring) {
+                    if (!mintAddress) {
+                        alert('请先输入代币地址');
+                        return;
+                    }
+                    // 移除44位的长度检查，改为更通用的验证
+                    try {
+                        // 尝试创建 PublicKey 对象来验证地址格式
+                        const { PublicKey } = require('@solana/web3.js');
+                        new PublicKey(mintAddress);
+                        
+                        ipcRenderer.send('start-trade-monitor', mintAddress);
+                        btn.textContent = '停止监听';
+                        btn.classList.add('monitoring');
+                    } catch (error) {
+                        alert('请输入有效的代币地址');
+                        return;
+                    }
+                } else {
+                    ipcRenderer.send('stop-trade-monitor');
+                    btn.textContent = '开始监听';
+                    btn.classList.remove('monitoring');
+                }
+                
+                isMonitoring = !isMonitoring;
+            }
+
+            // 在现有脚本中添加
+            function openGMGN() {
+                const mintAddress = document.getElementById('mintAddressText').value.trim();
+                if (mintAddress) {
+                    const url = `https://gmgn.ai/sol/token/${mintAddress}`;
+                    require('electron').shell.openExternal(url);
+                } else {
+                    alert('请先输入代币地址');
+                }
+            }
+
+            // 在现有脚本中添加
+            ipcRenderer.on('distribution-complete', (event, result) => {
+                // 延迟2秒后关闭进度弹窗
+                setTimeout(() => {
+                    const modal = document.getElementById('progressModal');
+                    if (modal) {
+                        modal.style.display = 'none';
+                    }
+                    
+                    // 如果分发成功，显示成功消息
+                    if (result.success) {
+                        addLog('分发完成', 'success');
+                    } else {
+                        addLog(`分发失败: ${result.message}`, 'error');
+                    }
+                }, 2000);
+            });
+
+            // 在现有的 ipcRenderer 监听器中添加
+            ipcRenderer.on('update-lapan-button', (event, isRunning) => {
+                const lapanBtn = document.querySelector('.pump-button');
+                if (isRunning) {
+                    lapanBtn.textContent = '停止拉盘';
+                    lapanBtn.style.backgroundColor = '#e74c3c';
+                } else {
+                    lapanBtn.textContent = '拉盘';
+                    lapanBtn.style.backgroundColor = '#f39c12';
+                }
+            });
+        </script>
+    </div>
+</body>
+</html> 
