@@ -17,7 +17,10 @@ async function startMonitoring(onTokenDiscovered) {
     // 简化Solana连接创建，不显式指定WebSocket端点
     const connection = new Connection(
       config.rpcUrl,
-      { commitment: 'finalized' }
+      { 
+        commitment: 'finalized',
+        wsEndpoint: config.rpcUrl.replace('https', 'wss') // 添加WebSocket配置
+      }
     );
     
     // 测试连接

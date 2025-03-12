@@ -37,11 +37,31 @@ class PumpFunSDK {
   constructor(provider) {
     console.log('初始化SDK...');
     
-    // 完全简化构造函数，与pumpBuildTx保持一致
-    this.program = new Program(require('./IDL.json'), PROGRAM_ID, provider);
-    this.connection = this.program.provider.connection;
-    
-    console.log(`SDK初始化成功，Program ID: ${PROGRAM_ID}`);
+    try {
+      // 确保provider有效
+      if (!provider) {
+        throw new Error('Provider is required');
+      }
+      
+      // 加载IDL
+      const idl = require('./IDL.json');
+      if (!idl) {
+        throw new Error('Failed to load IDL');
+      }
+      
+      // 初始化Program
+      this.program = new Program(idl, PROGRAM_ID, provider);
+      if (!this.program) {
+        throw new Error('Failed to initialize Program');
+      }
+      
+      this.connection = this.program.provider.connection;
+      
+      console.log(`SDK初始化成功，Program ID: ${PROGRAM_ID}`);
+    } catch (error) {
+      console.error('SDK初始化失败:', error);
+      throw error;
+    }
   }
 
   // 创建代币并买入
