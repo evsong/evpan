@@ -32,12 +32,26 @@ async function startMonitoring(onTokenDiscovered) {
       // 测试WebSocket连接
       console.log('测试WebSocket连接...');
       try {
+        // 创建一个延迟函数
+        const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
+        
         const dummyPublicKey = Keypair.generate().publicKey;
+        console.log(`- 尝试订阅账户 ${dummyPublicKey.toString()}`);
+        
+        // 添加账户变更监听器（这会启动WebSocket连接）
         const testId = await connection.onAccountChange(
           dummyPublicKey,
-          () => {},
+          () => {
+            console.log('收到账户变更事件（测试用）');
+          },
           'confirmed'
         );
+        
+        // 等待一段时间，确保WebSocket连接完全建立
+        console.log('等待WebSocket连接建立...');
+        await delay(2000); // 等待2秒
+        
+        // 移除测试监听器
         await connection.removeAccountChangeListener(testId);
         console.log('WebSocket连接成功');
       } catch (wsErr) {
