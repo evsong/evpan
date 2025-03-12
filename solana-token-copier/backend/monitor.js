@@ -14,14 +14,36 @@ async function startMonitoring(onTokenDiscovered) {
   try {
     console.log('开始监听新代币创建事件...');
     
-    // 初始化Solana连接
-    const connection = new Connection(config.rpcUrl);
+    // 初始化Solana连接 - 显式指定WebSocket端点
+    const connection = new Connection(
+      config.rpcUrl,
+      {
+        wsEndpoint: config.wsUrl,
+        commitment: 'finalized' // 使用finalized而不是confirmed
+      }
+    );
     
     // 测试连接
     console.log('测试Solana连接...');
     try {
       const blockHeight = await connection.getBlockHeight();
-      console.log(`连接成功，当前区块高度: ${blockHeight}`);
+      console.log(`HTTP连接成功，当前区块高度: ${blockHeight}`);
+      
+      // 测试WebSocket连接
+      console.log('测试WebSocket连接...');
+      try {
+        const dummyPublicKey = Keypair.generate().publicKey;
+        const testId = await connection.onAccountChange(
+          dummyPublicKey,
+          () => {},
+          'confirmed'
+        );
+        await connection.removeAccountChangeListener(testId);
+        console.log('WebSocket连接成功');
+      } catch (wsErr) {
+        console.error(`WebSocket连接测试失败: ${wsErr.message}`);
+        throw new Error(`无法建立WebSocket连接: ${wsErr.message}`);
+      }
     } catch (connErr) {
       console.error(`Solana连接测试失败: ${connErr.message}`);
       throw new Error(`无法连接到Solana网络: ${connErr.message}`);
@@ -30,16 +52,21 @@ async function startMonitoring(onTokenDiscovered) {
     // 创建有效的wallet对象 - 使用NodeWallet，与pumpBuildTx保持一致
     const wallet = new NodeWallet(Keypair.generate());
     
-    // 创建Provider，确保设置所有必要的选项
+    // 创建Provider - 使用与pumpBuildTx完全相同的配置
     const provider = new AnchorProvider(
       connection, 
       wallet, 
       { 
-        commitment: 'confirmed',
-        preflightCommitment: 'confirmed',
+        commitment: 'finalized',     // 使用finalized而不是confirmed
+        preflightCommitment: 'finalized',
         skipPreflight: false
       }
     );
+    
+    // 确认provider已正确初始化
+    if (!provider || !provider.connection) {
+      throw new Error('Provider初始化失败');
+    }
     
     // 初始化SDK
     console.log('初始化PumpFunSDK...');

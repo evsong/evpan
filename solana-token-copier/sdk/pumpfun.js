@@ -8,7 +8,7 @@ const {
   Transaction,
   VersionedTransaction,
 } = require('@solana/web3.js');
-const { Program, Provider } = require('@coral-xyz/anchor');
+const { Program, Provider, AnchorProvider } = require('@coral-xyz/anchor');
 const { GlobalAccount } = require('./globalAccount');
 const { BondingCurveAccount } = require('./bondingCurveAccount');
 const { BN } = require('bn.js');
@@ -35,9 +35,27 @@ const lamportsPerSol = BigInt(1_000_000_000);
 // PumpFun SDK实现
 class PumpFunSDK {
   constructor(provider) {
-    // 初始化Anchor程序
-    this.program = new Program(require('./IDL.json'), PROGRAM_ID, provider);
-    this.connection = this.program.provider.connection;
+    try {
+      if (!provider) {
+        throw new Error('Provider不能为空');
+      }
+      
+      // 确保provider有正确的配置
+      if (!provider.connection) {
+        throw new Error('Provider中缺少connection对象');
+      }
+      
+      // 初始化Anchor程序
+      this.program = new Program(require('./IDL.json'), PROGRAM_ID, provider);
+      
+      // 直接从program.provider获取connection，确保一致性
+      this.connection = this.program.provider.connection;
+      
+      console.log('SDK初始化成功，Program ID:', PROGRAM_ID);
+    } catch (error) {
+      console.error(`SDK初始化失败: ${error.message}`);
+      throw error;
+    }
   }
 
   // 创建代币并买入
