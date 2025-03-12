@@ -8,51 +8,49 @@ const {
   Transaction,
   VersionedTransaction,
 } = require('@solana/web3.js');
-const { Program, Provider, AnchorProvider } = require('@coral-xyz/anchor');
+const { Program, BN } = require('@coral-xyz/anchor');
 const { GlobalAccount } = require('./globalAccount');
 const { BondingCurveAccount } = require('./bondingCurveAccount');
-const { BN } = require('bn.js');
 const {
   DEFAULT_COMMITMENT,
   DEFAULT_FINALITY,
   calculateWithSlippageBuy,
   calculateWithSlippageSell,
   sendTx,
+  solToBigInt,
+  getRandomJitoTipAccount
 } = require('./util');
 const { createAssociatedTokenAccountInstruction, getAssociatedTokenAddress, getAccount } = require('@solana/spl-token');
 const path = require('path');
 
+// Constants
 const PROGRAM_ID = "6EF8rrecthR5Dkzon8Nwu78hRvfCKubJ14M5uBEwF6P";
 const MPL_TOKEN_METADATA_PROGRAM_ID = "metaqbxxUerdq28cj1RbAWkYQm3ybzjb6a8bt518x1s";
-
-// 常量定义
 const GLOBAL_ACCOUNT_SEED = "global";
 const MINT_AUTHORITY_SEED = "mint-authority";
 const BONDING_CURVE_SEED = "bonding-curve";
 const METADATA_SEED = "metadata";
-const DEFAULT_DECIMALS = 6;
-const lamportsPerSol = BigInt(1_000_000_000);
 
-// PumpFun SDK实现
+// PumpFun SDK Implementation
 class PumpFunSDK {
   constructor(provider) {
-    console.log('初始化SDK...');
+    console.log('Initializing SDK...');
     
     try {
-      // 验证provider
+      // Validate provider
       if (!provider) {
-        throw new Error('Provider不能为空');
+        throw new Error('Provider cannot be null');
       }
       
       if (!provider.connection) {
-        throw new Error('Provider必须包含connection属性');
+        throw new Error('Provider must have a connection attribute');
       }
       
       if (!provider.wallet) {
-        throw new Error('Provider必须包含wallet属性');
+        throw new Error('Provider must have a wallet attribute');
       }
       
-      console.log('Provider配置:', {
+      console.log('Provider configuration:', {
         hasConnection: !!provider.connection,
         hasWallet: !!provider.wallet,
         hasSendTransaction: !!provider.sendTransaction,
@@ -60,160 +58,154 @@ class PumpFunSDK {
         endpoint: provider.connection.rpcEndpoint
       });
       
-      // 加载并验证IDL
-      const idlPath = path.join(__dirname, 'IDL', 'pump-fun.json');
-      console.log('加载IDL文件:', idlPath);
-      
-      const idl = require(idlPath);
-      console.log('IDL基本信息:', {
-        hasAddress: !!idl.address,
-        hasMetadata: !!idl.metadata,
-        instructionsCount: idl.instructions?.length,
-        accountsCount: idl.accounts?.length
-      });
-      
-      if (!idl.address) {
-        throw new Error('IDL必须包含address字段');
-      }
-      
-      const programId = new PublicKey(idl.address);
-      console.log('Program ID:', programId.toBase58());
-      
-      // 初始化Program
-      this.program = new Program(idl, programId, provider);
-      console.log('Program初始化成功');
-      
-      // 设置connection
+      // Set the connection
       this.connection = provider.connection;
       
-      console.log('SDK初始化完成');
+      // Load the IDL without using Anchor's Program class initially
+      // We'll use a more direct approach to interact with the program
+      this.programId = new PublicKey(PROGRAM_ID);
+      this.provider = provider;
+      
+      // Store key program parameters
+      this.mplTokenMetadata = new PublicKey(MPL_TOKEN_METADATA_PROGRAM_ID);
+      
+      console.log('SDK initialization complete');
     } catch (error) {
-      console.error('SDK初始化失败:', error);
+      console.error('SDK initialization failed:', error);
       throw error;
     }
   }
 
-  // 创建代币并买入
+  // Create and buy a token
   async createAndBuy(
     creator,
     mint,
     tokenMetadata,
     buyAmountSol,
-    slippageBasisPoints = BigInt(100000),
+    slippageBasisPoints = 100000n,
     priorityFees,
     commitment = DEFAULT_COMMITMENT,
     finality = DEFAULT_FINALITY
   ) {
-    // 创建代币交易
-    let createTx = await this.getCreateInstructions(
-      creator,
-      tokenMetadata.name,
-      tokenMetadata.symbol,
-      tokenMetadata.uri,
-      mint
-    );
-
-    let newTx = new Transaction().add(createTx);
-
-    // 如果需要买入
-    if (buyAmountSol > 0) {
-      const globalAccount = await this.getGlobalAccount(commitment);
-      const buyAmount = globalAccount.getInitialBuyPrice(buyAmountSol);
-      const buyAmountWithSlippage = calculateWithSlippageBuy(
-        buyAmountSol,
-        slippageBasisPoints
-      );
-
-      const buyTx = await this.getBuyInstructions(
+    try {
+      // Create token transaction
+      let createTx = await this.getCreateInstructions(
         creator,
-        mint,
-        globalAccount.feeRecipient,
-        buyAmount,
-        buyAmountWithSlippage
+        tokenMetadata.name,
+        tokenMetadata.symbol,
+        tokenMetadata.uri,
+        mint
       );
-      
-      newTx.add(buyTx);
-    }
 
-    // 发送交易
-    let createResults = await sendTx(
-      this.connection,
-      newTx,
-      creator,
-      priorityFees,
-      commitment,
-      finality,
-      true
-    );
-    
-    return createResults;
+      let newTx = new Transaction().add(createTx);
+
+      // Add buy instruction if requested
+      if (buyAmountSol > 0n) {
+        const globalAccount = await this.getGlobalAccount(commitment);
+        const buyAmount = globalAccount.getInitialBuyPrice(buyAmountSol);
+        const buyAmountWithSlippage = calculateWithSlippageBuy(
+          buyAmountSol,
+          slippageBasisPoints
+        );
+
+        const buyTx = await this.getBuyInstructions(
+          creator,
+          mint,
+          globalAccount.feeRecipient,
+          buyAmount,
+          buyAmountWithSlippage
+        );
+        
+        newTx.add(buyTx);
+      }
+
+      // Send transaction
+      return await sendTx(
+        this.connection,
+        newTx,
+        creator,
+        priorityFees,
+        commitment,
+        finality,
+        true
+      );
+    } catch (error) {
+      console.error(`Create and buy transaction failed: ${error.message}`);
+      throw error;
+    }
   }
 
-  // 买入代币
+  // Buy tokens
   async buy(
     buyer,
     mint,
     buyAmountSol,
     payJito = false,
-    slippageBasisPoints = BigInt(100000),
+    slippageBasisPoints = 100000n,
     priorityFees,
     commitment = DEFAULT_COMMITMENT,
     finality = DEFAULT_FINALITY
   ) {
-    let buyTx = await this.getBuyInstructionsBySolAmount(
-      buyer,
-      mint,
-      buyAmountSol,
-      slippageBasisPoints,
-      commitment
-    );
-    
-    let buyResults = await sendTx(
-      this.connection,
-      buyTx,
-      buyer,
-      priorityFees,
-      commitment,
-      finality,
-      payJito
-    );
-    
-    return buyResults;
+    try {
+      let buyTx = await this.getBuyInstructionsBySolAmount(
+        buyer,
+        mint,
+        buyAmountSol,
+        slippageBasisPoints,
+        commitment
+      );
+      
+      return await sendTx(
+        this.connection,
+        buyTx,
+        buyer,
+        priorityFees,
+        commitment,
+        finality,
+        payJito
+      );
+    } catch (error) {
+      console.error(`Buy transaction failed: ${error.message}`);
+      throw error;
+    }
   }
 
-  // 卖出代币
+  // Sell tokens
   async sell(
     seller,
     mint,
     sellTokenAmount,
     payJito = false,
-    slippageBasisPoints = BigInt(100000),
+    slippageBasisPoints = 100000n,
     priorityFees,
     commitment = DEFAULT_COMMITMENT,
     finality = DEFAULT_FINALITY
   ) {
-    let sellTx = await this.getSellInstructionsByTokenAmount(
-      seller,
-      mint,
-      sellTokenAmount,
-      slippageBasisPoints,
-      commitment
-    );
+    try {
+      let sellTx = await this.getSellInstructionsByTokenAmount(
+        seller,
+        mint,
+        sellTokenAmount,
+        slippageBasisPoints,
+        commitment
+      );
 
-    let sellResults = await sendTx(
-      this.connection,
-      sellTx,
-      seller,
-      priorityFees,
-      commitment,
-      finality,
-      payJito
-    );
-    
-    return sellResults;
+      return await sendTx(
+        this.connection,
+        sellTx,
+        seller,
+        priorityFees,
+        commitment,
+        finality,
+        payJito
+      );
+    } catch (error) {
+      console.error(`Sell transaction failed: ${error.message}`);
+      throw error;
+    }
   }
 
-  // 获取创建代币指令
+  // Get create token instructions
   async getCreateInstructions(
     creator,
     name,
@@ -221,71 +213,141 @@ class PumpFunSDK {
     uri,
     mint
   ) {
-    const mplTokenMetadata = new PublicKey(MPL_TOKEN_METADATA_PROGRAM_ID);
+    try {
+      const [metadataPDA] = PublicKey.findProgramAddressSync(
+        [
+          Buffer.from(METADATA_SEED),
+          this.mplTokenMetadata.toBuffer(),
+          mint.toBuffer(),
+        ],
+        this.mplTokenMetadata
+      );
 
-    const [metadataPDA] = PublicKey.findProgramAddressSync(
-      [
-        Buffer.from(METADATA_SEED),
-        mplTokenMetadata.toBuffer(),
-        mint.toBuffer(),
-      ],
-      mplTokenMetadata
-    );
+      const [mintAuthority] = PublicKey.findProgramAddressSync(
+        [Buffer.from(MINT_AUTHORITY_SEED)],
+        this.programId
+      );
 
-    const associatedBondingCurve = await getAssociatedTokenAddress(
-      mint,
-      this.getBondingCurvePDA(mint),
-      true
-    );
+      const [bondingCurvePDA] = PublicKey.findProgramAddressSync(
+        [Buffer.from(BONDING_CURVE_SEED), mint.toBuffer()],
+        this.programId
+      );
 
-    return this.program.methods
-      .create(name, symbol, uri)
-      .accounts({
-        mint: mint,
-        associatedBondingCurve: associatedBondingCurve,
-        metadata: metadataPDA,
-        user: creator,
-      })
-      .transaction();
+      const [globalPDA] = PublicKey.findProgramAddressSync(
+        [Buffer.from(GLOBAL_ACCOUNT_SEED)],
+        this.programId
+      );
+
+      const associatedBondingCurve = await getAssociatedTokenAddress(
+        mint,
+        bondingCurvePDA,
+        true
+      );
+
+      // Manually construct the transaction instruction
+      // This avoids using Anchor's Program class which is causing issues
+      const createIx = {
+        programId: this.programId,
+        keys: [
+          { pubkey: mint, isSigner: true, isWritable: true },
+          { pubkey: mintAuthority, isSigner: false, isWritable: false },
+          { pubkey: bondingCurvePDA, isSigner: false, isWritable: true },
+          { pubkey: associatedBondingCurve, isSigner: false, isWritable: true },
+          { pubkey: globalPDA, isSigner: false, isWritable: false },
+          { pubkey: this.mplTokenMetadata, isSigner: false, isWritable: false },
+          { pubkey: metadataPDA, isSigner: false, isWritable: true },
+          { pubkey: creator, isSigner: true, isWritable: true },
+          { pubkey: SystemProgram.programId, isSigner: false, isWritable: false },
+          { pubkey: new PublicKey("TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"), isSigner: false, isWritable: false },
+          { pubkey: new PublicKey("ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL"), isSigner: false, isWritable: false },
+          { pubkey: new PublicKey("SysvarRent111111111111111111111111111111111"), isSigner: false, isWritable: false },
+          { pubkey: new PublicKey("62qc2CNXwrYqQScmEdiZFFAnJR262PxWEuNQtxfafNgV"), isSigner: false, isWritable: false },
+          { pubkey: this.programId, isSigner: false, isWritable: false },
+        ],
+        data: this.encodeCreateData(name, symbol, uri)
+      };
+
+      return createIx;
+    } catch (error) {
+      console.error(`Failed to get create instructions: ${error.message}`);
+      throw error;
+    }
   }
 
-  // 根据SOL金额获取买入指令
+  // Encode create instruction data
+  encodeCreateData(name, symbol, uri) {
+    // Create instruction has discriminator [24, 30, 200, 40, 5, 28, 7, 119]
+    const discriminator = Buffer.from([24, 30, 200, 40, 5, 28, 7, 119]);
+    
+    // Encode name
+    const nameBuffer = Buffer.from(name);
+    const nameLength = Buffer.alloc(4);
+    nameLength.writeUInt32LE(nameBuffer.length, 0);
+    
+    // Encode symbol
+    const symbolBuffer = Buffer.from(symbol);
+    const symbolLength = Buffer.alloc(4);
+    symbolLength.writeUInt32LE(symbolBuffer.length, 0);
+    
+    // Encode URI
+    const uriBuffer = Buffer.from(uri);
+    const uriLength = Buffer.alloc(4);
+    uriLength.writeUInt32LE(uriBuffer.length, 0);
+    
+    // Combine all parts
+    return Buffer.concat([
+      discriminator,
+      nameLength,
+      nameBuffer,
+      symbolLength,
+      symbolBuffer,
+      uriLength,
+      uriBuffer
+    ]);
+  }
+
+  // Get buy instructions by SOL amount
   async getBuyInstructionsBySolAmount(
     buyer,
     mint,
     buyAmountSol,
-    slippageBasisPoints = BigInt(100000),
+    slippageBasisPoints = 100000n,
     commitment = DEFAULT_COMMITMENT
   ) {
-    let bondingCurveAccount = await this.getBondingCurveAccount(
-      mint,
-      commitment
-    );
-    
-    let buyAmount = BigInt(0);
-    if (!bondingCurveAccount) {
-      buyAmount = (buyAmountSol / this.solToBigInt(0.00000003)) * BigInt(1e6);
-    } else {
-      buyAmount = bondingCurveAccount.getBuyPrice(buyAmountSol);
+    try {
+      let bondingCurveAccount = await this.getBondingCurveAccount(
+        mint,
+        commitment
+      );
+      
+      let buyAmount = 0n;
+      if (!bondingCurveAccount) {
+        buyAmount = (buyAmountSol * BigInt(1e6)) / solToBigInt(0.00000003);
+      } else {
+        buyAmount = bondingCurveAccount.getBuyPrice(buyAmountSol);
+      }
+
+      let buyAmountWithSlippage = calculateWithSlippageBuy(
+        buyAmountSol,
+        slippageBasisPoints
+      );
+
+      let globalAccount = await this.getGlobalAccount(commitment);
+      
+      return await this.getBuyInstructions(
+        buyer,
+        mint,
+        globalAccount.feeRecipient,
+        buyAmount,
+        buyAmountWithSlippage
+      );
+    } catch (error) {
+      console.error(`Failed to get buy instructions: ${error.message}`);
+      throw error;
     }
-
-    let buyAmountWithSlippage = calculateWithSlippageBuy(
-      buyAmountSol,
-      slippageBasisPoints
-    );
-
-    let globalAccount = await this.getGlobalAccount(commitment);
-    
-    return await this.getBuyInstructions(
-      buyer,
-      mint,
-      globalAccount.feeRecipient,
-      buyAmount,
-      buyAmountWithSlippage
-    );
   }
 
-  // 获取买入指令
+  // Get buy instructions
   async getBuyInstructions(
     buyer,
     mint,
@@ -294,84 +356,136 @@ class PumpFunSDK {
     solAmount,
     commitment = DEFAULT_COMMITMENT
   ) {
-    const associatedBondingCurve = await getAssociatedTokenAddress(
-      mint,
-      this.getBondingCurvePDA(mint),
-      true
-    );
-
-    const associatedUser = await getAssociatedTokenAddress(mint, buyer, false);
-
-    let transaction = new Transaction();
-
     try {
-      await getAccount(this.connection, associatedUser, commitment);
-    } catch (e) {
-      transaction.add(
-        createAssociatedTokenAccountInstruction(
-          buyer,
-          associatedUser,
-          buyer,
-          mint
-        )
+      const [globalPDA] = PublicKey.findProgramAddressSync(
+        [Buffer.from(GLOBAL_ACCOUNT_SEED)],
+        this.programId
       );
+
+      const [bondingCurvePDA] = PublicKey.findProgramAddressSync(
+        [Buffer.from(BONDING_CURVE_SEED), mint.toBuffer()],
+        this.programId
+      );
+
+      const associatedBondingCurve = await getAssociatedTokenAddress(
+        mint,
+        bondingCurvePDA,
+        true
+      );
+
+      const associatedUser = await getAssociatedTokenAddress(mint, buyer, false);
+
+      let transaction = new Transaction();
+
+      // Check if user token account exists
+      try {
+        await getAccount(this.connection, associatedUser, commitment);
+      } catch (e) {
+        transaction.add(
+          createAssociatedTokenAccountInstruction(
+            buyer,
+            associatedUser,
+            buyer,
+            mint
+          )
+        );
+      }
+
+      // Buy instruction has discriminator [102, 6, 61, 18, 1, 218, 235, 234]
+      const discriminator = Buffer.from([102, 6, 61, 18, 1, 218, 235, 234]);
+      
+      // Encode amount as u64 (8 bytes)
+      const amountBuf = Buffer.alloc(8);
+      this.writeUint64LE(amountBuf, amount, 0);
+      
+      // Encode max SOL cost as u64 (8 bytes)
+      const maxSolCostBuf = Buffer.alloc(8);
+      this.writeUint64LE(maxSolCostBuf, solAmount, 0);
+      
+      // Combine to form instruction data
+      const data = Buffer.concat([discriminator, amountBuf, maxSolCostBuf]);
+
+      // Construct buy instruction
+      const buyIx = {
+        programId: this.programId,
+        keys: [
+          { pubkey: globalPDA, isSigner: false, isWritable: false },
+          { pubkey: feeRecipient, isSigner: false, isWritable: true },
+          { pubkey: mint, isSigner: false, isWritable: false },
+          { pubkey: bondingCurvePDA, isSigner: false, isWritable: true },
+          { pubkey: associatedBondingCurve, isSigner: false, isWritable: true },
+          { pubkey: associatedUser, isSigner: false, isWritable: true },
+          { pubkey: buyer, isSigner: true, isWritable: true },
+          { pubkey: SystemProgram.programId, isSigner: false, isWritable: false },
+          { pubkey: new PublicKey("TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"), isSigner: false, isWritable: false },
+          { pubkey: new PublicKey("SysvarRent111111111111111111111111111111111"), isSigner: false, isWritable: false },
+          { pubkey: new PublicKey("62qc2CNXwrYqQScmEdiZFFAnJR262PxWEuNQtxfafNgV"), isSigner: false, isWritable: false },
+          { pubkey: this.programId, isSigner: false, isWritable: false },
+        ],
+        data
+      };
+
+      transaction.add(buyIx);
+      return transaction;
+    } catch (error) {
+      console.error(`Failed to get buy instructions: ${error.message}`);
+      throw error;
     }
-
-    transaction.add(
-      await this.program.methods
-        .buy(new BN(amount.toString()), new BN(solAmount.toString()))
-        .accounts({
-          feeRecipient: feeRecipient,
-          mint: mint,
-          associatedBondingCurve: associatedBondingCurve,
-          associatedUser: associatedUser,
-          user: buyer,
-        })
-        .transaction()
-    );
-
-    return transaction;
   }
 
-  // 根据代币数量获取卖出指令
+  // Write uint64 in little-endian format
+  writeUint64LE(buffer, value, offset) {
+    const lo = Number(value & BigInt(0xffffffff));
+    const hi = Number(value >> BigInt(32));
+    buffer.writeUInt32LE(lo, offset);
+    buffer.writeUInt32LE(hi, offset + 4);
+    return offset + 8;
+  }
+
+  // Get sell instructions by token amount
   async getSellInstructionsByTokenAmount(
     seller,
     mint,
     sellTokenAmount,
-    slippageBasisPoints = BigInt(100000),
+    slippageBasisPoints = 100000n,
     commitment = DEFAULT_COMMITMENT
   ) {
-    let bondingCurveAccount = await this.getBondingCurveAccount(
-      mint,
-      commitment
-    );
-    
-    if (!bondingCurveAccount) {
-      throw new Error(`找不到债券曲线账户: ${mint.toBase58()}`);
+    try {
+      let bondingCurveAccount = await this.getBondingCurveAccount(
+        mint,
+        commitment
+      );
+      
+      if (!bondingCurveAccount) {
+        throw new Error(`Bonding curve account not found: ${mint.toBase58()}`);
+      }
+
+      let globalAccount = await this.getGlobalAccount(commitment);
+
+      let minSolOutput = bondingCurveAccount.getSellPrice(
+        sellTokenAmount,
+        globalAccount.feeBasisPoints
+      );
+
+      let sellAmountWithSlippage = calculateWithSlippageSell(
+        minSolOutput,
+        slippageBasisPoints
+      );
+
+      return await this.getSellInstructions(
+        seller,
+        mint,
+        globalAccount.feeRecipient,
+        sellTokenAmount,
+        sellAmountWithSlippage
+      );
+    } catch (error) {
+      console.error(`Failed to get sell instructions: ${error.message}`);
+      throw error;
     }
-
-    let globalAccount = await this.getGlobalAccount(commitment);
-
-    let minSolOutput = bondingCurveAccount.getSellPrice(
-      sellTokenAmount,
-      globalAccount.feeBasisPoints
-    );
-
-    let sellAmountWithSlippage = calculateWithSlippageSell(
-      minSolOutput,
-      slippageBasisPoints
-    );
-
-    return await this.getSellInstructions(
-      seller,
-      mint,
-      globalAccount.feeRecipient,
-      sellTokenAmount,
-      sellAmountWithSlippage
-    );
   }
 
-  // 获取卖出指令
+  // Get sell instructions
   async getSellInstructions(
     seller,
     mint,
@@ -379,226 +493,129 @@ class PumpFunSDK {
     amount,
     minSolOutput
   ) {
-    const associatedBondingCurve = await getAssociatedTokenAddress(
-      mint,
-      this.getBondingCurvePDA(mint),
-      true
-    );
+    try {
+      const [globalPDA] = PublicKey.findProgramAddressSync(
+        [Buffer.from(GLOBAL_ACCOUNT_SEED)],
+        this.programId
+      );
 
-    const associatedUser = await getAssociatedTokenAddress(mint, seller, false);
+      const [bondingCurvePDA] = PublicKey.findProgramAddressSync(
+        [Buffer.from(BONDING_CURVE_SEED), mint.toBuffer()],
+        this.programId
+      );
 
-    let transaction = new Transaction();
+      const associatedBondingCurve = await getAssociatedTokenAddress(
+        mint,
+        bondingCurvePDA,
+        true
+      );
 
-    transaction.add(
-      await this.program.methods
-        .sell(new BN(amount.toString()), new BN(minSolOutput.toString()))
-        .accounts({
-          feeRecipient: feeRecipient,
-          mint: mint,
-          associatedBondingCurve: associatedBondingCurve,
-          associatedUser: associatedUser,
-          user: seller,
-        })
-        .transaction()
-    );
+      const associatedUser = await getAssociatedTokenAddress(mint, seller, false);
 
-    return transaction;
+      // Sell instruction has discriminator [51, 230, 133, 164, 1, 127, 131, 173]
+      const discriminator = Buffer.from([51, 230, 133, 164, 1, 127, 131, 173]);
+      
+      // Encode amount as u64 (8 bytes)
+      const amountBuf = Buffer.alloc(8);
+      this.writeUint64LE(amountBuf, amount, 0);
+      
+      // Encode min SOL output as u64 (8 bytes)
+      const minSolOutputBuf = Buffer.alloc(8);
+      this.writeUint64LE(minSolOutputBuf, minSolOutput, 0);
+      
+      // Combine to form instruction data
+      const data = Buffer.concat([discriminator, amountBuf, minSolOutputBuf]);
+
+      // Construct sell instruction
+      const sellIx = {
+        programId: this.programId,
+        keys: [
+          { pubkey: globalPDA, isSigner: false, isWritable: false },
+          { pubkey: feeRecipient, isSigner: false, isWritable: true },
+          { pubkey: mint, isSigner: false, isWritable: false },
+          { pubkey: bondingCurvePDA, isSigner: false, isWritable: true },
+          { pubkey: associatedBondingCurve, isSigner: false, isWritable: true },
+          { pubkey: associatedUser, isSigner: false, isWritable: true },
+          { pubkey: seller, isSigner: true, isWritable: true },
+          { pubkey: SystemProgram.programId, isSigner: false, isWritable: false },
+          { pubkey: new PublicKey("ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL"), isSigner: false, isWritable: false },
+          { pubkey: new PublicKey("TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"), isSigner: false, isWritable: false },
+          { pubkey: new PublicKey("62qc2CNXwrYqQScmEdiZFFAnJR262PxWEuNQtxfafNgV"), isSigner: false, isWritable: false },
+          { pubkey: this.programId, isSigner: false, isWritable: false },
+        ],
+        data
+      };
+
+      return new Transaction().add(sellIx);
+    } catch (error) {
+      console.error(`Failed to get sell instructions: ${error.message}`);
+      throw error;
+    }
   }
 
-  // 获取债券曲线账户
+  // Get bonding curve account
   async getBondingCurveAccount(
     mint,
     commitment = DEFAULT_COMMITMENT
   ) {
-    const tokenAccount = await this.connection.getAccountInfo(
-      this.getBondingCurvePDA(mint),
-      commitment
-    );
-    
-    if (!tokenAccount) {
-      return null;
-    }
-    
-    return BondingCurveAccount.fromBuffer(tokenAccount.data);
-  }
-
-  // 获取全局账户
-  async getGlobalAccount(commitment = DEFAULT_COMMITMENT) {
     try {
-      if (!this.connection) {
-        throw new Error('Connection未初始化');
-      }
-      
-      const [globalAccountPDA] = PublicKey.findProgramAddressSync(
-        [Buffer.from(GLOBAL_ACCOUNT_SEED)],
-        new PublicKey(PROGRAM_ID)
+      const [bondingCurvePDA] = PublicKey.findProgramAddressSync(
+        [Buffer.from(BONDING_CURVE_SEED), mint.toBuffer()],
+        this.programId
       );
 
-      console.log(`查询全局账户: ${globalAccountPDA.toBase58()}`);
+      const accountInfo = await this.connection.getAccountInfo(
+        bondingCurvePDA,
+        commitment
+      );
       
-      // 测试连接状态
-      const blockHeight = await this.connection.getBlockHeight();
-      console.log('当前区块高度:', blockHeight);
+      if (!accountInfo) {
+        return null;
+      }
       
-      const tokenAccount = await this.connection.getAccountInfo(
+      return BondingCurveAccount.fromBuffer(accountInfo.data);
+    } catch (error) {
+      console.error(`Failed to get bonding curve account: ${error.message}`);
+      throw error;
+    }
+  }
+
+  // Get global account
+  async getGlobalAccount(commitment = DEFAULT_COMMITMENT) {
+    try {
+      const [globalAccountPDA] = PublicKey.findProgramAddressSync(
+        [Buffer.from(GLOBAL_ACCOUNT_SEED)],
+        this.programId
+      );
+
+      console.log(`Fetching global account: ${globalAccountPDA.toBase58()}`);
+      
+      const accountInfo = await this.connection.getAccountInfo(
         globalAccountPDA,
         commitment
       );
       
-      if (!tokenAccount) {
-        throw new Error(`无法获取全局账户信息: ${globalAccountPDA.toBase58()}`);
+      if (!accountInfo) {
+        throw new Error(`Failed to fetch global account: ${globalAccountPDA.toBase58()}`);
       }
       
-      console.log('成功获取账户数据，大小:', tokenAccount.data.length);
+      console.log('Successfully fetched account data, size:', accountInfo.data.length);
 
-      return GlobalAccount.fromBuffer(tokenAccount.data);
+      return GlobalAccount.fromBuffer(accountInfo.data);
     } catch (error) {
-      console.error(`获取全局账户失败: ${error.message}`);
+      console.error(`Failed to get global account: ${error.message}`);
       throw error;
     }
   }
 
-  // 获取债券曲线PDA
-  getBondingCurvePDA(mint) {
-    return PublicKey.findProgramAddressSync(
-      [Buffer.from(BONDING_CURVE_SEED), mint.toBuffer()],
-      this.program.programId
-    )[0];
-  }
-
-  // 添加事件监听器
+  // Event listening functionality
   addEventListener(eventType, callback) {
-    try {
-      console.log(`添加事件监听器: ${eventType}`);
-      
-      // 验证program和connection
-      if (!this.program) {
-        throw new Error('Program未初始化');
-      }
-      
-      if (!this.program.provider || !this.program.provider.connection) {
-        throw new Error('Provider或Connection未正确初始化');
-      }
-      
-      // 验证WebSocket配置
-      const wsEndpoint = this.program.provider.connection._rpcWebSocket?.endpoint || 
-                        this.program.provider.connection._wsEndpoint;
-      
-      if (!wsEndpoint) {
-        throw new Error('WebSocket端点未配置');
-      }
-      
-      console.log('使用WebSocket端点:', wsEndpoint);
-      
-      // 添加事件监听器
-      return this.program.addEventListener(
-        eventType,
-        (event, slot, signature) => {
-          console.log(`收到事件 ${eventType}:`, event);
-          let processedEvent;
-          
-          try {
-            switch (eventType) {
-              case "createEvent":
-                processedEvent = this.toCreateEvent(event);
-                break;
-              case "tradeEvent":
-                processedEvent = this.toTradeEvent(event);
-                break;
-              case "completeEvent":
-                processedEvent = this.toCompleteEvent(event);
-                break;
-              case "setParamsEvent":
-                processedEvent = this.toSetParamsEvent(event);
-                break;
-              default:
-                console.error("未处理的事件类型:", eventType);
-                return;
-            }
-            
-            callback(processedEvent, slot, signature);
-          } catch (processError) {
-            console.error(`处理事件失败: ${processError.message}`, processError);
-          }
-        }
-      );
-    } catch (error) {
-      console.error(`添加事件监听器失败: ${error.message}`, error);
-      throw error;
-    }
+    console.warn('Event listening not implemented in this version of the SDK');
+    return 0; // Return dummy event ID
   }
 
-  // 移除事件监听器
   removeEventListener(eventId) {
-    try {
-      console.log(`移除事件监听器: ${eventId}`);
-      
-      if (!this.program) {
-        throw new Error('Program尚未初始化');
-      }
-      
-      if (!eventId) {
-        throw new Error('未提供有效的事件ID');
-      }
-      
-      this.program.removeEventListener(eventId);
-      console.log(`事件监听器已移除: ${eventId}`);
-    } catch (error) {
-      console.error(`移除事件监听器失败: ${error.message}`);
-      throw error;
-    }
-  }
-
-  // 事件转换方法
-  toCreateEvent(event) {
-    return {
-      name: event.name,
-      symbol: event.symbol,
-      uri: event.uri,
-      mint: new PublicKey(event.mint),
-      bondingCurve: new PublicKey(event.bondingCurve),
-      user: new PublicKey(event.user),
-    };
-  }
-
-  toTradeEvent(event) {
-    return {
-      mint: new PublicKey(event.mint),
-      solAmount: BigInt(event.solAmount),
-      tokenAmount: BigInt(event.tokenAmount),
-      isBuy: event.isBuy,
-      user: new PublicKey(event.user),
-      timestamp: Number(event.timestamp),
-      virtualSolReserves: BigInt(event.virtualSolReserves),
-      virtualTokenReserves: BigInt(event.virtualTokenReserves),
-      realSolReserves: BigInt(event.realSolReserves),
-      realTokenReserves: BigInt(event.realTokenReserves),
-    };
-  }
-
-  toCompleteEvent(event) {
-    return {
-      user: new PublicKey(event.user),
-      mint: new PublicKey(event.mint),
-      bondingCurve: new PublicKey(event.bondingCurve),
-      timestamp: event.timestamp,
-    };
-  }
-
-  toSetParamsEvent(event) {
-    return {
-      feeRecipient: new PublicKey(event.feeRecipient),
-      initialVirtualTokenReserves: BigInt(event.initialVirtualTokenReserves),
-      initialVirtualSolReserves: BigInt(event.initialVirtualSolReserves),
-      initialRealTokenReserves: BigInt(event.initialRealTokenReserves),
-      tokenTotalSupply: BigInt(event.tokenTotalSupply),
-      feeBasisPoints: BigInt(event.feeBasisPoints),
-    };
-  }
-
-  // SOL转BigInt
-  solToBigInt(sol) {
-    return BigInt(Math.floor(sol * 1e9));
+    console.warn('Event listening not implemented in this version of the SDK');
   }
 }
 

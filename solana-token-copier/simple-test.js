@@ -23,8 +23,12 @@ async function testSDK() {
     });
     
     // 测试连接
+    console.log('测试连接状态...');
     const blockHeight = await connection.getBlockHeight();
     console.log('连接成功 - 当前区块高度:', blockHeight);
+    
+    const latestBlockhash = await connection.getLatestBlockhash();
+    console.log('最新区块哈希:', latestBlockhash.blockhash);
     
     // 创建钱包
     console.log('\n2. 创建测试钱包...');
@@ -43,17 +47,33 @@ async function testSDK() {
       }
     );
     
+    // 验证Provider配置
+    console.log('Provider配置:', {
+      hasConnection: !!provider.connection,
+      hasWallet: !!provider.wallet,
+      hasSendTransaction: !!provider.sendTransaction,
+      commitment: provider.connection.commitment,
+      endpoint: provider.connection.rpcEndpoint
+    });
+    
     // 初始化SDK
     console.log('\n4. 初始化SDK...');
     const sdk = new PumpFunSDK(provider);
     
     // 测试全局账户访问
     console.log('\n5. 测试全局账户访问...');
-    const globalAccount = await sdk.getGlobalAccount();
-    console.log('全局账户信息:', {
-      feeRecipient: globalAccount.feeRecipient.toBase58(),
-      feeBasisPoints: globalAccount.feeBasisPoints.toString()
-    });
+    try {
+      const globalAccount = await sdk.getGlobalAccount();
+      console.log('全局账户信息:', {
+        feeRecipient: globalAccount.feeRecipient.toBase58(),
+        initialVirtualTokenReserves: globalAccount.initialVirtualTokenReserves.toString(),
+        initialVirtualSolReserves: globalAccount.initialVirtualSolReserves.toString(),
+        feeBasisPoints: globalAccount.feeBasisPoints.toString()
+      });
+    } catch (error) {
+      console.error('获取全局账户失败:', error.message);
+      throw error;
+    }
     
     console.log('\n=== SDK测试完成 ===');
     return true;
