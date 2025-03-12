@@ -20,6 +20,7 @@ const {
   sendTx,
 } = require('./util');
 const { createAssociatedTokenAccountInstruction, getAssociatedTokenAddress, getAccount } = require('@solana/spl-token');
+const path = require('path');
 
 const PROGRAM_ID = "6EF8rrecthR5Dkzon8Nwu78hRvfCKubJ14M5uBEwF6P";
 const MPL_TOKEN_METADATA_PROGRAM_ID = "metaqbxxUerdq28cj1RbAWkYQm3ybzjb6a8bt518x1s";
@@ -51,53 +52,41 @@ class PumpFunSDK {
         throw new Error('Provider必须包含wallet属性');
       }
       
-      // 加载并验证IDL
-      const idl = require('./IDL/simple-pump-fun.json');
-      
-      // 验证IDL基本结构
-      if (!idl.address) {
-        throw new Error('IDL必须包含根级别的address字段');
-      }
-      
-      if (!idl.metadata || !idl.metadata.name || !idl.metadata.version) {
-        throw new Error('IDL必须包含完整的metadata信息');
-      }
-      
-      console.log('IDL信息:', {
-        name: idl.metadata.name,
-        version: idl.metadata.version,
-        programId: idl.address
-      });
-      
-      // 验证accounts结构
-      if (!idl.accounts || !Array.isArray(idl.accounts)) {
-        throw new Error('IDL必须包含accounts数组');
-      }
-      
-      // 验证关键账户
-      const hasGlobalAccount = idl.accounts.some(acc => acc.name === 'globalAccount');
-      const hasBondingCurveAccount = idl.accounts.some(acc => acc.name === 'bondingCurveAccount');
-      
-      if (!hasGlobalAccount || !hasBondingCurveAccount) {
-        throw new Error('IDL缺少必要的账户定义');
-      }
-      
-      // 初始化Program
-      this.program = new Program(idl, idl.address, provider);
-      
-      // 设置connection
-      this.connection = provider.connection;
-      
-      console.log(`SDK初始化成功，Program ID: ${idl.address}`);
-      console.log(`使用RPC地址: ${this.connection.rpcEndpoint}`);
-      
-      // 验证provider配置
       console.log('Provider配置:', {
         hasConnection: !!provider.connection,
         hasWallet: !!provider.wallet,
         hasSendTransaction: !!provider.sendTransaction,
-        commitment: provider.connection.commitment
+        commitment: provider.connection.commitment,
+        endpoint: provider.connection.rpcEndpoint
       });
+      
+      // 加载并验证IDL
+      const idlPath = path.join(__dirname, 'IDL', 'pump-fun.json');
+      console.log('加载IDL文件:', idlPath);
+      
+      const idl = require(idlPath);
+      console.log('IDL基本信息:', {
+        hasAddress: !!idl.address,
+        hasMetadata: !!idl.metadata,
+        instructionsCount: idl.instructions?.length,
+        accountsCount: idl.accounts?.length
+      });
+      
+      if (!idl.address) {
+        throw new Error('IDL必须包含address字段');
+      }
+      
+      const programId = new PublicKey(idl.address);
+      console.log('Program ID:', programId.toBase58());
+      
+      // 初始化Program
+      this.program = new Program(idl, programId, provider);
+      console.log('Program初始化成功');
+      
+      // 设置connection
+      this.connection = provider.connection;
+      
+      console.log('SDK初始化完成');
     } catch (error) {
       console.error('SDK初始化失败:', error);
       throw error;
