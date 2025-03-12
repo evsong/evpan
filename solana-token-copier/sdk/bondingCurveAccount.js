@@ -41,7 +41,6 @@ class BondingCurveAccount {
       
       return tokenAmount < this.realTokenReserves ? tokenAmount : this.realTokenReserves;
     } catch (error) {
-      console.error('计算买入价格失败:', error);
       throw error;
     }
   }
@@ -66,7 +65,6 @@ class BondingCurveAccount {
       
       return n - feeAmount;
     } catch (error) {
-      console.error('计算卖出价格失败:', error);
       throw error;
     }
   }
@@ -99,7 +97,6 @@ class BondingCurveAccount {
         data.complete
       );
     } catch (error) {
-      console.error('解析绑定曲线账户数据失败:', error);
       throw error;
     }
   }

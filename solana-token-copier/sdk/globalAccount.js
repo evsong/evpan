@@ -30,7 +30,6 @@ class GlobalAccount {
       solAmount = BigInt(solAmount);
       return (solAmount * this.initialVirtualTokenReserves) / this.initialVirtualSolReserves;
     } catch (error) {
-      console.error('计算初始买入价格失败:', error);
       throw error;
     }
   }
@@ -67,7 +66,6 @@ class GlobalAccount {
         BigInt(data.feeBasisPoints.toString())
       );
     } catch (error) {
-      console.error('解析全局账户数据失败:', error);
       throw error;
     }
   }

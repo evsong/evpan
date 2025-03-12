@@ -34,8 +34,6 @@ const METADATA_SEED = "metadata";
 // PumpFun SDK Implementation
 class PumpFunSDK {
   constructor(provider) {
-    console.log('Initializing SDK...');
-    
     try {
       // Validate provider
       if (!provider) {
@@ -50,26 +48,16 @@ class PumpFunSDK {
         throw new Error('Provider must have a wallet attribute');
       }
       
-      console.log('Provider configuration:', {
-        hasConnection: !!provider.connection,
-        hasWallet: !!provider.wallet,
-        hasSendTransaction: !!provider.sendTransaction,
-        commitment: provider.connection.commitment,
-        endpoint: provider.connection.rpcEndpoint
-      });
-      
       // Set the connection
       this.connection = provider.connection;
       
       // Load the IDL without using Anchor's Program class initially
-      // We'll use a more direct approach to interact with the program
       this.programId = new PublicKey(PROGRAM_ID);
       this.provider = provider;
       
       // Store key program parameters
       this.mplTokenMetadata = new PublicKey(MPL_TOKEN_METADATA_PROGRAM_ID);
       
-      console.log('SDK initialization complete');
     } catch (error) {
       console.error('SDK initialization failed:', error);
       throw error;
@@ -587,8 +575,6 @@ class PumpFunSDK {
         [Buffer.from(GLOBAL_ACCOUNT_SEED)],
         this.programId
       );
-
-      console.log(`Fetching global account: ${globalAccountPDA.toBase58()}`);
       
       const accountInfo = await this.connection.getAccountInfo(
         globalAccountPDA,
@@ -598,8 +584,6 @@ class PumpFunSDK {
       if (!accountInfo) {
         throw new Error(`Failed to fetch global account: ${globalAccountPDA.toBase58()}`);
       }
-      
-      console.log('Successfully fetched account data, size:', accountInfo.data.length);
 
       return GlobalAccount.fromBuffer(accountInfo.data);
     } catch (error) {
@@ -610,12 +594,11 @@ class PumpFunSDK {
 
   // Event listening functionality
   addEventListener(eventType, callback) {
-    console.warn('Event listening not implemented in this version of the SDK');
     return 0; // Return dummy event ID
   }
 
   removeEventListener(eventId) {
-    console.warn('Event listening not implemented in this version of the SDK');
+    // No implementation needed
   }
 }
 

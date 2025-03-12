@@ -105,7 +105,6 @@ async function withRetry(fn, maxRetries = 3, delay = 1000) {
     try {
       return await fn();
     } catch (error) {
-      console.warn(`操作失败 (尝试 ${retry + 1}/${maxRetries}): ${error.message}`);
       lastError = error;
       
       // 只对网络错误重试
@@ -116,7 +115,6 @@ async function withRetry(fn, maxRetries = 3, delay = 1000) {
       // 等待一段时间后重试，使用指数退避策略
       if (retry < maxRetries - 1) {
         const backoffTime = delay * Math.pow(2, retry);
-        console.log(`等待 ${backoffTime}ms 后重试...`);
         await new Promise(resolve => setTimeout(resolve, backoffTime));
       }
     }
