@@ -63,6 +63,9 @@ async function startMonitoring(onTokenDiscovered) {
       }
     );
     
+    // 设置默认provider
+    AnchorProvider.setProvider(provider);
+    
     // 初始化SDK
     console.log('初始化PumpFunSDK...');
     const sdk = new PumpFunSDK(provider);
