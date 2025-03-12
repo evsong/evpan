@@ -1,6 +1,10 @@
 {
-  "version": "0.1.0",
-  "name": "pump",
+  "address": "6EF8rrecthR5Dkzon8Nwu78hRvfCKubJ14M5uBEwF6P",
+  "metadata": {
+    "name": "pump",
+    "version": "0.1.0",
+    "spec": "0.1.0"
+  },
   "instructions": [
     {
       "name": "initialize",
@@ -8,17 +12,20 @@
         {
           "name": "global",
           "isMut": true,
-          "isSigner": false
+          "isSigner": false,
+          "type": "publicKey"
         },
         {
           "name": "user",
           "isMut": true,
-          "isSigner": true
+          "isSigner": true,
+          "type": "publicKey"
         },
         {
           "name": "systemProgram",
           "isMut": false,
-          "isSigner": false
+          "isSigner": false,
+          "type": "publicKey"
         }
       ],
       "args": []
@@ -105,8 +112,5 @@
         ]
       }
     }
-  ],
-  "metadata": {
-    "address": "6EF8rrecthR5Dkzon8Nwu78hRvfCKubJ14M5uBEwF6P"
-  }
+  ]
 } 

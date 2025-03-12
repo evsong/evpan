@@ -38,36 +38,43 @@ class PumpFunSDK {
     console.log('初始化SDK...');
     
     try {
-      // 确保provider存在
+      // 验证provider
       if (!provider) {
         throw new Error('Provider不能为空');
       }
       
-      // 检查provider.connection是否存在
       if (!provider.connection) {
         throw new Error('Provider必须包含connection属性');
       }
       
-      // 检查provider.wallet是否存在
       if (!provider.wallet) {
         throw new Error('Provider必须包含wallet属性');
       }
       
-      // 加载简化版IDL
+      // 加载并验证IDL
       const idl = require('./IDL/simple-pump-fun.json');
+      
+      // 验证IDL基本结构
+      if (!idl.address) {
+        throw new Error('IDL必须包含根级别的address字段');
+      }
+      
+      if (!idl.metadata || !idl.metadata.name || !idl.metadata.version) {
+        throw new Error('IDL必须包含完整的metadata信息');
+      }
+      
       console.log('IDL信息:', {
-        name: idl.name,
-        version: idl.version,
-        programId: idl.metadata.address,
-        accountsCount: idl.accounts.length
+        name: idl.metadata.name,
+        version: idl.metadata.version,
+        programId: idl.address
       });
       
-      // 验证IDL结构
+      // 验证accounts结构
       if (!idl.accounts || !Array.isArray(idl.accounts)) {
         throw new Error('IDL必须包含accounts数组');
       }
       
-      // 检查关键账户是否存在
+      // 验证关键账户
       const hasGlobalAccount = idl.accounts.some(acc => acc.name === 'globalAccount');
       const hasBondingCurveAccount = idl.accounts.some(acc => acc.name === 'bondingCurveAccount');
       
@@ -76,12 +83,12 @@ class PumpFunSDK {
       }
       
       // 初始化Program
-      this.program = new Program(idl, PROGRAM_ID, provider);
+      this.program = new Program(idl, idl.address, provider);
       
-      // 明确设置connection属性
+      // 设置connection
       this.connection = provider.connection;
       
-      console.log(`SDK初始化成功，Program ID: ${PROGRAM_ID}`);
+      console.log(`SDK初始化成功，Program ID: ${idl.address}`);
       console.log(`使用RPC地址: ${this.connection.rpcEndpoint}`);
       
       // 验证provider配置
