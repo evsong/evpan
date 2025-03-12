@@ -53,9 +53,27 @@ class PumpFunSDK {
         throw new Error('Provider必须包含wallet属性');
       }
       
-      // 加载IDL
-      const idl = require('./IDL/pump-fun.json');
-      console.log('已加载IDL，Program ID:', idl.metadata.address);
+      // 加载简化版IDL
+      const idl = require('./IDL/simple-pump-fun.json');
+      console.log('IDL信息:', {
+        name: idl.name,
+        version: idl.version,
+        programId: idl.metadata.address,
+        accountsCount: idl.accounts.length
+      });
+      
+      // 验证IDL结构
+      if (!idl.accounts || !Array.isArray(idl.accounts)) {
+        throw new Error('IDL必须包含accounts数组');
+      }
+      
+      // 检查关键账户是否存在
+      const hasGlobalAccount = idl.accounts.some(acc => acc.name === 'globalAccount');
+      const hasBondingCurveAccount = idl.accounts.some(acc => acc.name === 'bondingCurveAccount');
+      
+      if (!hasGlobalAccount || !hasBondingCurveAccount) {
+        throw new Error('IDL缺少必要的账户定义');
+      }
       
       // 初始化Program
       this.program = new Program(idl, PROGRAM_ID, provider);
