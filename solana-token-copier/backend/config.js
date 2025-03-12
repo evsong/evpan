@@ -3,7 +3,6 @@ require('dotenv').config();
 module.exports = {
   // Solana RPC配置
   rpcUrl: process.env.SOLANA_RPC_URL || 'https://api.mainnet-beta.solana.com',
-  wsUrl: process.env.SOLANA_WS_URL || process.env.SOLANA_RPC_URL?.replace('https://', 'wss://').replace('http://', 'ws://') || 'wss://api.mainnet-beta.solana.com',
   
   // Jito配置
   jitoUrl: process.env.JITO_URL || 'https://amsterdam.mainnet.block-engine.jito.wtf:443/api/v1/bundles',

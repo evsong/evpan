@@ -35,25 +35,13 @@ const lamportsPerSol = BigInt(1_000_000_000);
 // PumpFun SDK实现
 class PumpFunSDK {
   constructor(provider) {
-    try {
-      // 简化的构造函数，与pumpBuildTx保持一致
-      console.log('初始化SDK...');
-      
-      if (!provider) {
-        throw new Error('Provider不能为空');
-      }
-      
-      // 直接初始化程序，不做额外检查
-      this.program = new Program(require('./IDL.json'), PROGRAM_ID, provider);
-      
-      // 设置connection - 这一步可能是问题所在，与pumpBuildTx保持一致
-      this.connection = provider.connection;
-      
-      console.log(`SDK初始化成功，Program ID: ${PROGRAM_ID}`);
-    } catch (error) {
-      console.error(`SDK初始化失败: ${error.message}`);
-      throw error;
-    }
+    console.log('初始化SDK...');
+    
+    // 完全简化构造函数，与pumpBuildTx保持一致
+    this.program = new Program(require('./IDL.json'), PROGRAM_ID, provider);
+    this.connection = this.program.provider.connection;
+    
+    console.log(`SDK初始化成功，Program ID: ${PROGRAM_ID}`);
   }
 
   // 创建代币并买入
@@ -413,47 +401,31 @@ class PumpFunSDK {
     try {
       console.log(`添加事件监听器: ${eventType}`);
       
-      // 只检查program，不依赖this.connection
-      if (!this.program) {
-        throw new Error('Program尚未初始化');
-      }
-      
-      // 简化的诊断信息
-      console.log('诊断信息:');
-      console.log(`- this.program存在: ${!!this.program}`);
-      console.log(`- this.program.provider存在: ${!!this.program.provider}`);
-      
-      // 直接使用program.addEventListener返回监听器ID，不做额外检查
-      console.log('尝试添加程序事件监听器...');
+      // 完全简化addEventListener方法，与pumpBuildTx保持一致
       return this.program.addEventListener(
         eventType,
         (event, slot, signature) => {
-          try {
-            let processedEvent;
-            
-            switch (eventType) {
-              case "createEvent":
-                processedEvent = this.toCreateEvent(event);
-                break;
-              case "tradeEvent":
-                processedEvent = this.toTradeEvent(event);
-                break;
-              case "completeEvent":
-                processedEvent = this.toCompleteEvent(event);
-                break;
-              case "setParamsEvent":
-                processedEvent = this.toSetParamsEvent(event);
-                break;
-              default:
-                console.error("未处理的事件类型:", eventType);
-                return;
-            }
-            
-            // 触发回调
-            callback(processedEvent, slot, signature);
-          } catch (error) {
-            console.error(`事件处理失败: ${error.message}`, error);
+          let processedEvent;
+          
+          switch (eventType) {
+            case "createEvent":
+              processedEvent = this.toCreateEvent(event);
+              break;
+            case "tradeEvent":
+              processedEvent = this.toTradeEvent(event);
+              break;
+            case "completeEvent":
+              processedEvent = this.toCompleteEvent(event);
+              break;
+            case "setParamsEvent":
+              processedEvent = this.toSetParamsEvent(event);
+              break;
+            default:
+              console.error("未处理的事件类型:", eventType);
+              return;
           }
+          
+          callback(processedEvent, slot, signature);
         }
       );
     } catch (error) {

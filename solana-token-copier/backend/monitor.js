@@ -14,73 +14,31 @@ async function startMonitoring(onTokenDiscovered) {
   try {
     console.log('开始监听新代币创建事件...');
     
-    // 初始化Solana连接 - 显式指定WebSocket端点
+    // 简化Solana连接创建，不显式指定WebSocket端点
     const connection = new Connection(
       config.rpcUrl,
-      {
-        wsEndpoint: config.wsUrl,
-        commitment: 'finalized' // 使用finalized而不是confirmed
-      }
+      { commitment: 'finalized' }
     );
     
     // 测试连接
     console.log('测试Solana连接...');
     try {
       const blockHeight = await connection.getBlockHeight();
-      console.log(`HTTP连接成功，当前区块高度: ${blockHeight}`);
-      
-      // 测试WebSocket连接
-      console.log('测试WebSocket连接...');
-      try {
-        // 创建一个延迟函数
-        const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
-        
-        const dummyPublicKey = Keypair.generate().publicKey;
-        console.log(`- 尝试订阅账户 ${dummyPublicKey.toString()}`);
-        
-        // 添加账户变更监听器（这会启动WebSocket连接）
-        const testId = await connection.onAccountChange(
-          dummyPublicKey,
-          () => {
-            console.log('收到账户变更事件（测试用）');
-          },
-          'confirmed'
-        );
-        
-        // 等待一段时间，确保WebSocket连接完全建立
-        console.log('等待WebSocket连接建立...');
-        await delay(2000); // 等待2秒
-        
-        // 移除测试监听器
-        await connection.removeAccountChangeListener(testId);
-        console.log('WebSocket连接成功');
-      } catch (wsErr) {
-        console.error(`WebSocket连接测试失败: ${wsErr.message}`);
-        throw new Error(`无法建立WebSocket连接: ${wsErr.message}`);
-      }
+      console.log(`连接成功，当前区块高度: ${blockHeight}`);
     } catch (connErr) {
       console.error(`Solana连接测试失败: ${connErr.message}`);
       throw new Error(`无法连接到Solana网络: ${connErr.message}`);
     }
     
-    // 创建有效的wallet对象 - 使用NodeWallet，与pumpBuildTx保持一致
+    // 创建有效的wallet对象
     const wallet = new NodeWallet(Keypair.generate());
     
-    // 创建Provider - 使用与pumpBuildTx完全相同的配置
+    // 创建Provider - 使用简单配置，与pumpBuildTx保持一致
     const provider = new AnchorProvider(
       connection, 
       wallet, 
-      { 
-        commitment: 'finalized',     // 使用finalized而不是confirmed
-        preflightCommitment: 'finalized',
-        skipPreflight: false
-      }
+      { commitment: 'finalized' }
     );
-    
-    // 确认provider已正确初始化
-    if (!provider || !provider.connection) {
-      throw new Error('Provider初始化失败');
-    }
     
     // 初始化SDK
     console.log('初始化PumpFunSDK...');
