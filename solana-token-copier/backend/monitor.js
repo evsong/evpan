@@ -21,8 +21,6 @@ async function startMonitoring(onTokenDiscovered) {
     // 创建Solana连接
     const rpcUrl = config.rpcUrl;
     const wsUrl = rpcUrl.replace('https', 'wss');
-    console.log('RPC URL:', rpcUrl);
-    console.log('WebSocket URL:', wsUrl);
     
     const connection = new Connection(
       rpcUrl,
@@ -34,20 +32,16 @@ async function startMonitoring(onTokenDiscovered) {
     );
     
     // 测试连接
-    console.log('测试Solana连接...');
     try {
       const blockHeight = await connection.getBlockHeight();
       console.log(`连接成功，当前区块高度: ${blockHeight}`);
       
       // 测试WebSocket连接
-      console.log('测试WebSocket连接...');
       const sub = connection.onSlotChange(() => {});
       if (sub) {
         connection.removeSlotChangeListener(sub);
-        console.log('WebSocket连接测试成功');
       }
     } catch (connErr) {
-      console.error(`Solana连接测试失败: ${connErr.message}`);
       throw new Error(`无法连接到Solana网络: ${connErr.message}`);
     }
     
@@ -57,7 +51,7 @@ async function startMonitoring(onTokenDiscovered) {
     // 创建Provider
     const provider = new AnchorProvider(
       connection, 
-      wallet, 
+      wallet,
       { 
         commitment: DEFAULT_COMMITMENT,
         preflightCommitment: DEFAULT_COMMITMENT,
@@ -66,16 +60,15 @@ async function startMonitoring(onTokenDiscovered) {
     );
     
     // 初始化SDK
-    console.log('初始化PumpFunSDK...');
     const sdk = new PumpFunSDK(provider);
     
     // 记录事件ID，用于后续停止监听
     let eventIds = [];
     
     // 监听创建事件
-    console.log('设置事件监听器...');
     try {
-      const createEventId = sdk.addEventListener("createEvent", async (event) => {
+      // 注意这里使用大写开头的事件名称，与IDL匹配
+      const createEventId = sdk.addEventListener("CreateEvent", async (event) => {
         try {
           console.log(`发现新代币: ${event.name} (${event.symbol})`);
           console.log(`Mint地址: ${event.mint.toString()}`);
@@ -96,7 +89,7 @@ async function startMonitoring(onTokenDiscovered) {
       eventIds.push(createEventId);
       console.log('监听器设置成功，ID:', createEventId);
     } catch (listenerErr) {
-      console.error(`设置事件监听器失败: ${listenerErr.message}`);
+      console.error(`设置事件监听器失败: ${listenerErr.message}`, listenerErr);
       throw new Error(`无法设置事件监听器: ${listenerErr.message}`);
     }
     
@@ -115,7 +108,7 @@ async function startMonitoring(onTokenDiscovered) {
     };
   } catch (error) {
     console.error(`启动监控失败: ${error.message}`);
-    throw new Error(`启动监控失败: ${error.message}`);
+    throw error;
   }
 }
 

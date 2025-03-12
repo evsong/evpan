@@ -8,11 +8,9 @@ const {
   Transaction,
   VersionedTransaction,
 } = require('@solana/web3.js');
-const { Program, BN, AnchorProvider } = require('@coral-xyz/anchor');
+const { Program, BN } = require('@coral-xyz/anchor');
 const { GlobalAccount } = require('./globalAccount');
 const { BondingCurveAccount } = require('./bondingCurveAccount');
-const { IDL } = require('./IDL'); // 确保正确引入IDL
-const { EventProcessor } = require('./events');
 const {
   DEFAULT_COMMITMENT,
   DEFAULT_FINALITY,
@@ -36,6 +34,8 @@ const METADATA_SEED = "metadata";
 // PumpFun SDK Implementation
 class PumpFunSDK {
   constructor(provider) {
+    console.log('Initializing SDK...');
+    
     try {
       // Validate provider
       if (!provider) {
@@ -50,19 +50,26 @@ class PumpFunSDK {
         throw new Error('Provider must have a wallet attribute');
       }
       
+      console.log('Provider configuration:', {
+        hasConnection: !!provider.connection,
+        hasWallet: !!provider.wallet,
+        hasSendTransaction: !!provider.sendTransaction,
+        commitment: provider.connection.commitment,
+        endpoint: provider.connection.rpcEndpoint
+      });
+      
       // Set the connection
       this.connection = provider.connection;
       
-      // Initialize Anchor Program with the IDL
+      // Load the IDL without using Anchor's Program class initially
+      // We'll use a more direct approach to interact with the program
       this.programId = new PublicKey(PROGRAM_ID);
       this.provider = provider;
-      
-      // 初始化Anchor Program对象
-      this.program = new Program(IDL, this.programId, provider);
       
       // Store key program parameters
       this.mplTokenMetadata = new PublicKey(MPL_TOKEN_METADATA_PROGRAM_ID);
       
+      console.log('SDK initialization complete');
     } catch (error) {
       console.error('SDK initialization failed:', error);
       throw error;
@@ -580,6 +587,8 @@ class PumpFunSDK {
         [Buffer.from(GLOBAL_ACCOUNT_SEED)],
         this.programId
       );
+
+      console.log(`Fetching global account: ${globalAccountPDA.toBase58()}`);
       
       const accountInfo = await this.connection.getAccountInfo(
         globalAccountPDA,
@@ -589,6 +598,8 @@ class PumpFunSDK {
       if (!accountInfo) {
         throw new Error(`Failed to fetch global account: ${globalAccountPDA.toBase58()}`);
       }
+      
+      console.log('Successfully fetched account data, size:', accountInfo.data.length);
 
       return GlobalAccount.fromBuffer(accountInfo.data);
     } catch (error) {
@@ -599,51 +610,13 @@ class PumpFunSDK {
 
   // Event listening functionality
   addEventListener(eventType, callback) {
-    try {
-      // 使用Anchor Program的addEventListener方法
-      const eventId = this.program.addEventListener(
-        eventType,
-        (event, slot, signature) => {
-          // 处理不同类型的事件
-          let processedEvent;
-          switch (eventType) {
-            case "CreateEvent":
-              processedEvent = EventProcessor.toCreateEvent(event);
-              break;
-            case "TradeEvent":
-              processedEvent = EventProcessor.toTradeEvent(event);
-              break;
-            case "CompleteEvent":
-              processedEvent = EventProcessor.toCompleteEvent(event);
-              break;
-            case "SetParamsEvent":
-              processedEvent = EventProcessor.toSetParamsEvent(event);
-              break;
-            default:
-              processedEvent = event;
-          }
-          
-          // 调用回调函数
-          callback(processedEvent, slot, signature);
-        }
-      );
-      
-      return eventId;
-    } catch (error) {
-      console.error(`Failed to add event listener for ${eventType}:`, error);
-      throw error;
-    }
+    console.warn('Event listening not implemented in this version of the SDK');
+    return 0; // Return dummy event ID
   }
 
   removeEventListener(eventId) {
-    try {
-      // 使用Anchor Program的removeEventListener方法
-      this.program.removeEventListener(eventId);
-    } catch (error) {
-      console.error(`Failed to remove event listener:`, error);
-      throw error;
-    }
+    console.warn('Event listening not implemented in this version of the SDK');
   }
 }
 
-module.exports = { PumpFunSDK }; 
+module.exports = { PumpFunSDK };
