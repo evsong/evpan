@@ -54,7 +54,7 @@ app.post('/api/tokens/create', async (req, res) => {
     
     // 创建成功后，自动开始监控该代币的交易
     if (result.success) {
-      startTokenTradeMonitor(result.newMintAddress || result.mintAddress);
+      await startTokenTradeMonitor(result.mint);
     }
     
     res.json(result);

@@ -1,4 +1,8 @@
-const { PumpFunSDK } = require('../sdk');
+const { 
+  PumpFunSDK, 
+  DEFAULT_COMMITMENT,
+  DEFAULT_FINALITY 
+} = require('../sdk');
 const { AnchorProvider } = require('@coral-xyz/anchor');
 const { Connection, Keypair } = require('@solana/web3.js');
 const NodeWallet = require('@coral-xyz/anchor/dist/cjs/nodewallet').default;
@@ -14,7 +18,7 @@ async function startMonitoring(onTokenDiscovered) {
   try {
     console.log('开始监听新代币创建事件...');
     
-    // 创建Solana连接，确保包含WebSocket配置
+    // 创建Solana连接
     const rpcUrl = config.rpcUrl;
     const wsUrl = rpcUrl.replace('https', 'wss');
     console.log('RPC URL:', rpcUrl);
@@ -23,7 +27,7 @@ async function startMonitoring(onTokenDiscovered) {
     const connection = new Connection(
       rpcUrl,
       { 
-        commitment: 'finalized',
+        commitment: DEFAULT_COMMITMENT,
         wsEndpoint: wsUrl,
         confirmTransactionInitialTimeout: 60000
       }
@@ -50,21 +54,16 @@ async function startMonitoring(onTokenDiscovered) {
     // 创建有效的wallet对象
     const wallet = new NodeWallet(Keypair.generate());
     
-    // 创建Provider - 添加完整的配置
+    // 创建Provider
     const provider = new AnchorProvider(
       connection, 
       wallet, 
       { 
-        commitment: 'finalized',
-        preflightCommitment: 'finalized',
-        skipPreflight: false,
-        wsEndpoint: wsUrl,
-        confirmTransactionInitialTimeout: 60000
+        commitment: DEFAULT_COMMITMENT,
+        preflightCommitment: DEFAULT_COMMITMENT,
+        skipPreflight: false
       }
     );
-    
-    // 设置默认provider
-    AnchorProvider.setProvider(provider);
     
     // 初始化SDK
     console.log('初始化PumpFunSDK...');

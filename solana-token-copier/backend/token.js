@@ -1,33 +1,27 @@
-const { Connection, Keypair, PublicKey } = require('@solana/web3.js');
-const { PumpFunSDK } = require('../sdk');
+const { 
+  PumpFunSDK, 
+  solToBigInt,
+  DEFAULT_COMMITMENT,
+  DEFAULT_FINALITY 
+} = require('../sdk');
 const { AnchorProvider } = require('@coral-xyz/anchor');
-const bs58 = require("bs58");
+const NodeWallet = require('@coral-xyz/anchor/dist/cjs/nodewallet').default;
+const { Connection, Keypair, PublicKey } = require('@solana/web3.js');
+const bs58 = require('bs58');
 const fetch = require('node-fetch');
 const config = require('./config');
 const { updateTokenStatus } = require('./redis');
 const { prepareMetadata, uploadMetadata } = require('./metadata');
 
-// 创建钱包
-const getCreatorWallet = () => {
-  const creatorKeyPair = Keypair.fromSecretKey(
-    bs58.decode(config.creatorPrivateKey)
-  );
+// 获取创建者钱包
+function getCreatorWallet() {
+  if (!config.creatorPrivateKey) {
+    throw new Error('未配置创建者私钥');
+  }
   
-  return {
-    publicKey: creatorKeyPair.publicKey,
-    signTransaction: async (tx) => {
-      tx.sign(creatorKeyPair);
-      return tx;
-    },
-    signAllTransactions: async (txs) => {
-      return txs.map(tx => {
-        tx.sign(creatorKeyPair);
-        return tx;
-      });
-    },
-    keypair: creatorKeyPair
-  };
-};
+  const privateKey = bs58.decode(config.creatorPrivateKey);
+  return new NodeWallet(Keypair.fromSecretKey(privateKey));
+}
 
 /**
  * 创建代币
@@ -39,13 +33,23 @@ async function createToken(tokenInfo) {
     console.log(`开始创建代币: ${tokenInfo.name} (${tokenInfo.symbol})`);
     
     // 初始化连接和SDK
-    const connection = new Connection(config.rpcUrl);
-    const wallet = getCreatorWallet();
+    const connection = new Connection(
+      config.rpcUrl,
+      { 
+        commitment: DEFAULT_COMMITMENT,
+        confirmTransactionInitialTimeout: 60000
+      }
+    );
     
+    const wallet = getCreatorWallet();
     const provider = new AnchorProvider(
       connection, 
       wallet,
-      { commitment: 'confirmed' }
+      { 
+        commitment: DEFAULT_COMMITMENT,
+        preflightCommitment: DEFAULT_COMMITMENT,
+        skipPreflight: false
+      }
     );
     
     const sdk = new PumpFunSDK(provider);
@@ -63,8 +67,7 @@ async function createToken(tokenInfo) {
     const mintKeypair = Keypair.generate();
     console.log(`生成Mint密钥对: ${mintKeypair.publicKey.toString()}`);
     
-    // 使用SDK创建代币并买入
-    console.log('创建代币并买入...');
+    // 使用新SDK的createAndBuy函数
     const createTx = await sdk.createAndBuy(
       wallet.publicKey,
       mintKeypair.publicKey,
@@ -73,65 +76,32 @@ async function createToken(tokenInfo) {
         symbol: tokenInfo.symbol,
         uri: metadataResult.metadataUri
       },
-      config.initialBuyAmount,
-      BigInt(1000), // 滑点设置
-      { // 优先级费用
+      solToBigInt(0.5), // 初始购买量
+      BigInt(1000), // 滑点
+      { 
         unitLimit: 1_400_000,
         unitPrice: 200_000
       }
     );
     
-    // 签名交易
-    console.log('签名交易...');
+    // 签名和发送交易
     createTx.sign([mintKeypair, wallet.keypair]);
     
-    // 构建Jito请求
-    console.log('发送交易到Jito...');
-    const encodedTx = bs58.encode(createTx.serialize());
-    const jitoResponse = await fetch(config.jitoUrl, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "Accept": "application/json"
-      },
-      body: JSON.stringify({
-        jsonrpc: "2.0",
-        id: 1,
-        method: "sendBundle",
-        params: [
-          [encodedTx]
-        ]
-      })
-    });
+    // 发送到Jito
+    const signature = await sendToJito(createTx);
     
-    const jitoResult = await jitoResponse.json();
-    console.log('Jito响应:', jitoResult);
-    
-    // 尝试获取签名
-    let signature = "";
-    try {
-      if (jitoResult && jitoResult.result && jitoResult.result.txResults) {
-        signature = jitoResult.result.txResults[0].signature || "";
-      }
-    } catch (e) {
-      console.warn('无法提取交易签名:', e.message);
-    }
-    
-    // 更新代币状态
+    // 成功后更新Redis
     const newMintAddress = mintKeypair.publicKey.toString();
     await updateTokenStatus(tokenInfo.mint, {
       ourMint: newMintAddress,
       status: 'created',
       createdAt: Date.now(),
-      sellAt: Date.now() + config.holdDuration,
-      signature: signature
+      sellAt: Date.now() + config.holdDuration
     });
     
     // 设置卖出定时器
-    console.log(`设置卖出定时器, ${config.holdDuration/1000}秒后卖出...`);
     setTimeout(() => sellToken(newMintAddress), config.holdDuration);
     
-    console.log(`代币创建成功: ${newMintAddress}`);
     return { 
       success: true, 
       mint: newMintAddress,
@@ -153,95 +123,58 @@ async function sellToken(mintAddress) {
     console.log(`开始卖出代币: ${mintAddress}`);
     
     // 初始化连接和SDK
-    const connection = new Connection(config.rpcUrl);
-    const wallet = getCreatorWallet();
+    const connection = new Connection(
+      config.rpcUrl,
+      { 
+        commitment: DEFAULT_COMMITMENT,
+        confirmTransactionInitialTimeout: 60000
+      }
+    );
     
+    const wallet = getCreatorWallet();
     const provider = new AnchorProvider(
       connection, 
       wallet,
-      { commitment: 'confirmed' }
+      { 
+        commitment: DEFAULT_COMMITMENT,
+        preflightCommitment: DEFAULT_COMMITMENT,
+        skipPreflight: false
+      }
     );
     
     const sdk = new PumpFunSDK(provider);
     
     // 获取代币余额
-    console.log('获取代币余额...');
-    const tokenAccounts = await connection.getTokenAccountsByOwner(
-      wallet.publicKey,
-      { mint: new PublicKey(mintAddress) }
-    );
-    
-    if (tokenAccounts.value.length === 0) {
-      console.log(`没有持有代币: ${mintAddress}`);
-      return { success: false, error: "没有持有代币" };
+    const mint = new PublicKey(mintAddress);
+    const tokenAccount = await getTokenAccount(connection, wallet.publicKey, mint);
+    if (!tokenAccount) {
+      throw new Error('找不到代币账户');
     }
     
-    // 解析账户数据获取余额
-    const accountInfo = tokenAccounts.value[0].account.data;
-    const buffer = accountInfo.buffer.slice(accountInfo.byteOffset, accountInfo.byteOffset + accountInfo.length);
-    const amount = buffer.readBigUInt64LE(64); // 读取余额
-    console.log(`当前持有代币数量: ${amount}`);
-    
-    // 卖出代币
-    console.log('卖出代币...');
+    // 卖出全部代币
     const sellTx = await sdk.sell(
       wallet.publicKey,
-      new PublicKey(mintAddress),
-      amount, // 全部卖出
-      true, // 支付Jito小费
-      BigInt(1000), // 滑点设置
-      { // 优先级费用
+      mint,
+      tokenAccount.amount,
+      true, // 使用Jito
+      BigInt(1000), // 滑点
+      { 
         unitLimit: 1_400_000,
         unitPrice: 200_000
       }
     );
     
-    // 签名交易
-    console.log('签名交易...');
-    sellTx.sign([wallet.keypair]);
-    
     // 发送到Jito
-    console.log('发送交易到Jito...');
-    const encodedTx = bs58.encode(sellTx.serialize());
-    const jitoResponse = await fetch(config.jitoUrl, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "Accept": "application/json"
-      },
-      body: JSON.stringify({
-        jsonrpc: "2.0",
-        id: 1,
-        method: "sendBundle",
-        params: [
-          [encodedTx]
-        ]
-      })
-    });
+    const signature = await sendToJito(sellTx);
     
-    const jitoResult = await jitoResponse.json();
-    console.log('Jito响应:', jitoResult);
-    
-    // 尝试获取签名
-    let signature = "";
-    try {
-      if (jitoResult && jitoResult.result && jitoResult.result.txResults) {
-        signature = jitoResult.result.txResults[0].signature || "";
-      }
-    } catch (e) {
-      console.warn('无法提取交易签名:', e.message);
-    }
-    
-    // 更新代币状态
+    // 更新状态
     await updateTokenStatus(mintAddress, {
       status: 'sold',
-      soldAt: Date.now(),
-      sellSignature: signature
+      soldAt: Date.now()
     });
     
-    console.log(`代币卖出成功: ${mintAddress}`);
     return { 
-      success: true,
+      success: true, 
       signature: signature 
     };
   } catch (error) {
@@ -250,4 +183,45 @@ async function sellToken(mintAddress) {
   }
 }
 
-module.exports = { createToken, sellToken }; 
+// 发送交易到Jito
+async function sendToJito(tx) {
+  try {
+    const response = await fetch(config.jitoUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        transaction: tx.serialize().toString('base64')
+      })
+    });
+    
+    if (!response.ok) {
+      throw new Error(`Jito API错误: ${response.status}`);
+    }
+    
+    const result = await response.json();
+    return result.signature;
+  } catch (error) {
+    console.error(`发送到Jito失败: ${error.message}`);
+    throw error;
+  }
+}
+
+// 获取代币账户
+async function getTokenAccount(connection, owner, mint) {
+  const accounts = await connection.getTokenAccountsByOwner(owner, {
+    mint: mint
+  });
+  
+  if (accounts.value.length === 0) {
+    return null;
+  }
+  
+  return accounts.value[0].account;
+}
+
+module.exports = {
+  createToken,
+  sellToken
+}; 
