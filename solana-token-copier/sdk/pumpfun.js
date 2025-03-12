@@ -50,27 +50,33 @@ class PumpFunSDK {
         throw new Error('Provider must have a wallet attribute');
       }
       
-      // Set the connection
+      console.log('Provider configuration:', {
+        hasConnection: !!provider.connection,
+        hasWallet: !!provider.wallet,
+        hasSendTransaction: !!provider.sendTransaction,
+        commitment: provider.connection.commitment,
+        endpoint: provider.connection.rpcEndpoint
+      });
+      
+      // 设置连接
       this.connection = provider.connection;
       
-      // Initialize Anchor Program with the IDL
+      // 明确设置 programId
       this.programId = new PublicKey(PROGRAM_ID);
-      this.provider = provider;
       
-      // 初始化Anchor Program对象
-      // 使用固定的程序地址
-      const programAddress = "6EF8rrecthR5Dkzon8Nwu78hRvfCKubJ14M5uBEwF6P";
-      this.program = new Program(IDL, new PublicKey(programAddress), provider);
-      
-      // 验证IDL加载
-      if (!IDL) {
-        throw new Error('IDL 加载失败');
+      // 确保 IDL 有 address 属性
+      if (!IDL.address) {
+        IDL.address = PROGRAM_ID;
+        console.log('Warning: Added missing address to IDL:', PROGRAM_ID);
       }
-      console.log('IDL loaded:', !!IDL, 'Address:', programAddress);
       
-      // Store key program parameters
+      // 使用 programId 和 IDL 初始化 Program
+      this.program = new Program(IDL, this.programId, provider);
+      
+      // 存储关键程序参数
       this.mplTokenMetadata = new PublicKey(MPL_TOKEN_METADATA_PROGRAM_ID);
       
+      console.log('SDK 初始化完成');
     } catch (error) {
       console.error('SDK initialization failed:', error);
       throw error;
