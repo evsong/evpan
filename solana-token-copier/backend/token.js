@@ -1,7 +1,7 @@
 const { Connection, Keypair, PublicKey } = require('@solana/web3.js');
 const { PumpFunSDK } = require('../sdk');
 const { AnchorProvider } = require('@coral-xyz/anchor');
-const base58 = require('base-58');
+const bs58 = require("bs58");
 const fetch = require('node-fetch');
 const config = require('./config');
 const { updateTokenStatus } = require('./redis');
@@ -10,7 +10,7 @@ const { prepareMetadata, uploadMetadata } = require('./metadata');
 // 创建钱包
 const getCreatorWallet = () => {
   const creatorKeyPair = Keypair.fromSecretKey(
-    base58.decode(config.creatorPrivateKey)
+    bs58.decode(config.creatorPrivateKey)
   );
   
   return {
@@ -87,7 +87,7 @@ async function createToken(tokenInfo) {
     
     // 构建Jito请求
     console.log('发送交易到Jito...');
-    const encodedTx = base58.encode(createTx.serialize());
+    const encodedTx = bs58.encode(createTx.serialize());
     const jitoResponse = await fetch(config.jitoUrl, {
       method: "POST",
       headers: {
@@ -202,7 +202,7 @@ async function sellToken(mintAddress) {
     
     // 发送到Jito
     console.log('发送交易到Jito...');
-    const encodedTx = base58.encode(sellTx.serialize());
+    const encodedTx = bs58.encode(sellTx.serialize());
     const jitoResponse = await fetch(config.jitoUrl, {
       method: "POST",
       headers: {
