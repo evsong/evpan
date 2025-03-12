@@ -36,52 +36,20 @@ const lamportsPerSol = BigInt(1_000_000_000);
 class PumpFunSDK {
   constructor(provider) {
     try {
+      // 简化的构造函数，与pumpBuildTx保持一致
+      console.log('初始化SDK...');
+      
       if (!provider) {
         throw new Error('Provider不能为空');
       }
       
-      // 确保provider有正确的配置
-      if (!provider.connection) {
-        throw new Error('Provider中缺少connection对象');
-      }
-      
-      // 检查WebSocket支持
-      if (!provider.connection._rpcWebSocket) {
-        console.warn('警告: Provider的connection没有WebSocket支持，事件监听可能不工作');
-      }
-      
-      // 打印provider配置
-      console.log('Provider配置:');
-      console.log(`- Connection: ${!!provider.connection}`);
-      console.log(`- Commitment: ${provider.connection.commitment || 'undefined'}`);
-      console.log(`- WebSocket: ${!!provider.connection._rpcWebSocket}`);
-      
-      // 初始化Anchor程序
+      // 直接初始化程序，不做额外检查
       this.program = new Program(require('./IDL.json'), PROGRAM_ID, provider);
       
-      // 验证程序初始化是否成功
-      if (!this.program) {
-        throw new Error('Program初始化失败');
-      }
+      // 设置connection - 这一步可能是问题所在，与pumpBuildTx保持一致
+      this.connection = provider.connection;
       
-      if (!this.program.programId) {
-        throw new Error('Program ID缺失');
-      }
-      
-      if (!this.program.provider) {
-        throw new Error('Program Provider缺失');
-      }
-      
-      // 直接从program.provider获取connection，确保一致性
-      this.connection = this.program.provider.connection;
-      
-      // 尝试确保WebSocket连接已经初始化
-      if (this.connection && this.connection._rpcWebSocket && !this.connection._rpcWebSocket.ready) {
-        console.log('尝试初始化WebSocket连接...');
-        this.connection._rpcWebSocket.connect();
-      }
-      
-      console.log('SDK初始化成功，Program ID:', PROGRAM_ID.toString());
+      console.log(`SDK初始化成功，Program ID: ${PROGRAM_ID}`);
     } catch (error) {
       console.error(`SDK初始化失败: ${error.message}`);
       throw error;
@@ -445,49 +413,18 @@ class PumpFunSDK {
     try {
       console.log(`添加事件监听器: ${eventType}`);
       
+      // 只检查program，不依赖this.connection
       if (!this.program) {
         throw new Error('Program尚未初始化');
       }
       
-      // 添加详细的诊断信息
+      // 简化的诊断信息
       console.log('诊断信息:');
       console.log(`- this.program存在: ${!!this.program}`);
-      console.log(`- this.connection存在: ${!!this.connection}`);
       console.log(`- this.program.provider存在: ${!!this.program.provider}`);
       
-      if (this.program.provider) {
-        console.log(`- this.program.provider.connection存在: ${!!this.program.provider.connection}`);
-        if (this.program.provider.connection) {
-          console.log(`- WebSocket支持: ${!!this.program.provider.connection._rpcWebSocket}`);
-          console.log(`- commitment设置: ${this.program.provider.connection.commitment}`);
-        }
-      }
-      
-      // 使用准确的错误消息
-      if (!this.connection) {
-        throw new Error('connection对象未初始化');
-      }
-      
-      if (!this.program.provider) {
-        throw new Error('program.provider未初始化');
-      }
-      
-      if (!this.program.provider.connection) {
-        throw new Error('provider.connection未初始化');
-      }
-      
-      if (!this.program.provider.connection._rpcWebSocket) {
-        throw new Error('WebSocket连接未初始化，RPC URL可能不支持WebSocket');
-      }
-      
-      // 确保WebSocket连接已准备好
-      if (!this.program.provider.connection._rpcWebSocket.ready) {
-        console.log('WebSocket连接尚未就绪，尝试强制连接...');
-        // 尝试强制建立连接
-        this.program.provider.connection._rpcWebSocket.connect();
-      }
-      
-      // 直接使用program.addEventListener返回监听器ID
+      // 直接使用program.addEventListener返回监听器ID，不做额外检查
+      console.log('尝试添加程序事件监听器...');
       return this.program.addEventListener(
         eventType,
         (event, slot, signature) => {
