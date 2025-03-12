@@ -7,21 +7,182 @@ const {
   Transaction,
   TransactionMessage,
   VersionedTransaction,
+  sendAndConfirmTransaction,
 } = require('@solana/web3.js');
+const { SDKError, ConnectionError } = require('./errors');
 
-// 默认设置
-const DEFAULT_COMMITMENT = "finalized";
-const DEFAULT_FINALITY = "finalized";
+// 常量定义
+const DEFAULT_COMMITMENT = 'confirmed';
+const DEFAULT_FINALITY = 'confirmed';
 
-// 计算买入滑点
-const calculateWithSlippageBuy = (amount, basisPoints) => {
-  return amount + (amount * basisPoints) / 10000n;
-};
+/**
+ * 确保输入值为 BigInt 类型
+ */
+function ensureBigInt(value) {
+  try {
+    if (typeof value === 'bigint') {
+      return value;
+    }
+    if (typeof value === 'number') {
+      return BigInt(Math.floor(value));
+    }
+    if (typeof value === 'string') {
+      return BigInt(value);
+    }
+    if (value && typeof value.toString === 'function') {
+      return BigInt(value.toString());
+    }
+    throw new Error(`无法转换 ${typeof value} 为 BigInt`);
+  } catch (error) {
+    console.error('BigInt转换失败:', error);
+    throw error;
+  }
+}
 
-// 计算卖出滑点
-const calculateWithSlippageSell = (amount, basisPoints) => {
-  return amount - (amount * basisPoints) / 10000n;
-};
+/**
+ * 安全的 BigInt 除法（向下取整）
+ */
+function safeBigIntDivision(a, b) {
+  try {
+    a = ensureBigInt(a);
+    b = ensureBigInt(b);
+    if (b === 0n) throw new Error('除数不能为零');
+    return a / b;
+  } catch (error) {
+    console.error('BigInt除法失败:', error);
+    throw error;
+  }
+}
+
+/**
+ * SOL转换为BigInt（1 SOL = 1e9 lamports）
+ */
+function solToBigInt(sol) {
+  try {
+    const lamports = sol * 1e9;
+    return BigInt(Math.floor(lamports));
+  } catch (error) {
+    console.error('SOL转换失败:', error);
+    throw error;
+  }
+}
+
+/**
+ * 计算买入滑点
+ */
+function calculateWithSlippageBuy(amount, slippageBasisPoints) {
+  try {
+    amount = ensureBigInt(amount);
+    slippageBasisPoints = ensureBigInt(slippageBasisPoints);
+    return amount + (amount * slippageBasisPoints) / 10000n;
+  } catch (error) {
+    console.error('计算买入滑点失败:', error);
+    throw error;
+  }
+}
+
+/**
+ * 计算卖出滑点
+ */
+function calculateWithSlippageSell(amount, slippageBasisPoints) {
+  try {
+    amount = ensureBigInt(amount);
+    slippageBasisPoints = ensureBigInt(slippageBasisPoints);
+    return amount - (amount * slippageBasisPoints) / 10000n;
+  } catch (error) {
+    console.error('计算卖出滑点失败:', error);
+    throw error;
+  }
+}
+
+/**
+ * 带重试功能的异步操作包装器
+ */
+async function withRetry(fn, maxRetries = 3, delay = 1000) {
+  let lastError;
+  
+  for (let retry = 0; retry < maxRetries; retry++) {
+    try {
+      return await fn();
+    } catch (error) {
+      console.warn(`操作失败 (尝试 ${retry + 1}/${maxRetries}): ${error.message}`);
+      lastError = error;
+      
+      // 只对网络错误重试
+      if (!isNetworkError(error)) {
+        throw error;
+      }
+      
+      // 等待一段时间后重试，使用指数退避策略
+      if (retry < maxRetries - 1) {
+        const backoffTime = delay * Math.pow(2, retry);
+        console.log(`等待 ${backoffTime}ms 后重试...`);
+        await new Promise(resolve => setTimeout(resolve, backoffTime));
+      }
+    }
+  }
+  
+  throw new ConnectionError(`在 ${maxRetries} 次尝试后失败`, lastError);
+}
+
+/**
+ * 判断是否为网络错误
+ */
+function isNetworkError(error) {
+  const errorMsg = error.message.toLowerCase();
+  return (
+    errorMsg.includes('timeout') ||
+    errorMsg.includes('network') ||
+    errorMsg.includes('econnreset') ||
+    errorMsg.includes('etimedout') ||
+    errorMsg.includes('econnrefused') ||
+    errorMsg.includes('429') || // Too Many Requests
+    errorMsg.includes('503') || // Service Unavailable
+    errorMsg.includes('504')    // Gateway Timeout
+  );
+}
+
+/**
+ * 发送交易
+ */
+async function sendTx(
+  connection,
+  transaction,
+  signer,
+  priorityFees,
+  commitment = DEFAULT_COMMITMENT,
+  finality = DEFAULT_FINALITY,
+  payJito = false
+) {
+  try {
+    // 获取最新区块哈希
+    const { blockhash, lastValidBlockHeight } = await connection.getLatestBlockhash(commitment);
+    transaction.recentBlockhash = blockhash;
+    transaction.feePayer = signer.publicKey;
+
+    // 如果需要添加优先费用
+    if (priorityFees) {
+      // TODO: 实现优先费用逻辑
+    }
+
+    // 签名并发送交易
+    const signature = await sendAndConfirmTransaction(
+      connection,
+      transaction,
+      [signer],
+      {
+        commitment,
+        preflightCommitment: commitment,
+        skipPreflight: false
+      }
+    );
+
+    return signature;
+  } catch (error) {
+    console.error('发送交易失败:', error);
+    throw error;
+  }
+}
 
 // 构建版本化交易
 async function buildVersionedTx(
@@ -45,68 +206,6 @@ async function buildVersionedTx(
   return new VersionedTransaction(messageV0);
 }
 
-// 发送交易
-async function sendTx(
-  connection,
-  tx,
-  payer,
-  priorityFees,
-  commitment = DEFAULT_COMMITMENT,
-  finality = DEFAULT_FINALITY,
-  jitoFee = false
-) {
-  let newTx = new Transaction();
-
-  // 添加优先级费用
-  if (priorityFees) {
-    const modifyComputeUnits = ComputeBudgetProgram.setComputeUnitLimit({
-      units: priorityFees.unitLimit,
-    });
-
-    const addPriorityFee = ComputeBudgetProgram.setComputeUnitPrice({
-      microLamports: priorityFees.unitPrice,
-    });
-    
-    newTx.add(modifyComputeUnits);
-    newTx.add(addPriorityFee);
-  }
-
-  // 添加原交易
-  if (Array.isArray(tx.instructions)) {
-    newTx.add(...tx.instructions);
-  } else {
-    newTx.add(tx);
-  }
-  
-  // 添加Jito小费
-  if (jitoFee) {
-    const tipAccount = getRandomJitoTipAccount();
-    
-    newTx.add(
-      SystemProgram.transfer({
-        fromPubkey: payer,
-        toPubkey: tipAccount,
-        lamports: 0.0001 * 1e9,
-      })
-    );
-  }
-
-  // 构建版本化交易
-  let versionedTx = await buildVersionedTx(
-    connection,
-    payer,
-    newTx,
-    commitment
-  );
-  
-  return versionedTx;
-}
-
-// SOL转BigInt
-function solToBigInt(sol) {
-  return BigInt(Math.floor(sol * 1e9));
-}
-
 // 获取随机Jito小费账户
 function getRandomJitoTipAccount() {
   const tipAccounts = [
@@ -120,10 +219,14 @@ function getRandomJitoTipAccount() {
 module.exports = {
   DEFAULT_COMMITMENT,
   DEFAULT_FINALITY,
+  ensureBigInt,
+  safeBigIntDivision,
+  solToBigInt,
   calculateWithSlippageBuy,
   calculateWithSlippageSell,
-  buildVersionedTx,
+  withRetry,
+  isNetworkError,
   sendTx,
-  solToBigInt,
+  buildVersionedTx,
   getRandomJitoTipAccount
 }; 

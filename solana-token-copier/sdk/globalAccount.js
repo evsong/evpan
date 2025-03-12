@@ -26,35 +26,50 @@ class GlobalAccount {
 
   // 计算初始买入价格
   getInitialBuyPrice(solAmount) {
-    return (solAmount / this.initialVirtualSolReserves) * this.initialVirtualTokenReserves;
+    try {
+      solAmount = BigInt(solAmount);
+      return (solAmount * this.initialVirtualTokenReserves) / this.initialVirtualSolReserves;
+    } catch (error) {
+      console.error('计算初始买入价格失败:', error);
+      throw error;
+    }
   }
 
   // 从缓冲区解析账户数据
   static fromBuffer(buffer) {
-    const LAYOUT = struct([
-      u64('discriminator'),
-      bool('initialized'),
-      publicKey('authority'),
-      publicKey('feeRecipient'),
-      u64('initialVirtualTokenReserves'),
-      u64('initialVirtualSolReserves'),
-      u64('initialRealTokenReserves'),
-      u64('tokenTotalSupply'),
-      u64('feeBasisPoints'),
-    ]);
+    try {
+      // Anchor 账户数据以 8 字节判别器开始
+      const discriminator = buffer.slice(0, 8);
+      
+      // 解析实际数据部分
+      const LAYOUT = struct([
+        bool('initialized'),
+        publicKey('authority'),
+        publicKey('feeRecipient'),
+        u64('initialVirtualTokenReserves'),
+        u64('initialVirtualSolReserves'),
+        u64('initialRealTokenReserves'),
+        u64('tokenTotalSupply'),
+        u64('feeBasisPoints'),
+      ]);
 
-    const data = LAYOUT.decode(buffer);
-    return new GlobalAccount(
-      BigInt(data.discriminator),
-      data.initialized,
-      data.authority,
-      data.feeRecipient,
-      BigInt(data.initialVirtualTokenReserves),
-      BigInt(data.initialVirtualSolReserves),
-      BigInt(data.initialRealTokenReserves),
-      BigInt(data.tokenTotalSupply),
-      BigInt(data.feeBasisPoints)
-    );
+      const data = LAYOUT.decode(buffer.slice(8));
+      
+      return new GlobalAccount(
+        BigInt('0x' + discriminator.toString('hex')),
+        data.initialized,
+        data.authority,
+        data.feeRecipient,
+        BigInt(data.initialVirtualTokenReserves.toString()),
+        BigInt(data.initialVirtualSolReserves.toString()),
+        BigInt(data.initialRealTokenReserves.toString()),
+        BigInt(data.tokenTotalSupply.toString()),
+        BigInt(data.feeBasisPoints.toString())
+      );
+    } catch (error) {
+      console.error('解析全局账户数据失败:', error);
+      throw error;
+    }
   }
 }
 
