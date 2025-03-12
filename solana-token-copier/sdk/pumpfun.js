@@ -38,47 +38,13 @@ class PumpFunSDK {
     console.log('初始化SDK...');
     
     try {
-      // 确保provider有效
-      if (!provider) {
-        throw new Error('Provider is required');
-      }
-      
-      // 验证provider
-      if (!provider.connection || !provider.wallet) {
-        throw new Error('Provider必须包含connection和wallet');
-      }
-      
-      // 设置默认provider
-      AnchorProvider.setProvider(provider);
-      
       // 加载IDL
       const idl = require('./IDL.json');
-      if (!idl) {
-        throw new Error('Failed to load IDL');
-      }
       
       // 初始化Program
       this.program = new Program(idl, PROGRAM_ID, provider);
-      if (!this.program) {
-        throw new Error('Failed to initialize Program');
-      }
-      
-      // 验证program provider
-      if (!this.program.provider || !this.program.provider.connection) {
-        throw new Error('Program provider未正确初始化');
-      }
-      
       this.connection = this.program.provider.connection;
       
-      // 验证WebSocket配置
-      const wsEndpoint = this.connection._rpcWebSocket?.endpoint || 
-                        this.connection._wsEndpoint;
-      
-      if (!wsEndpoint) {
-        throw new Error('WebSocket端点未配置');
-      }
-      
-      console.log('WebSocket端点:', wsEndpoint);
       console.log(`SDK初始化成功，Program ID: ${PROGRAM_ID}`);
     } catch (error) {
       console.error('SDK初始化失败:', error);
