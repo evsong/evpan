@@ -24,9 +24,9 @@ const {
 } = require('./util');
 const { createAssociatedTokenAccountInstruction, getAssociatedTokenAddress, getAccount } = require('@solana/spl-token');
 const path = require('path');
+const { PROGRAM_ID } = require('./types');
 
 // Constants
-const PROGRAM_ID = "6EF8rrecthR5Dkzon8Nwu78hRvfCKubJ14M5uBEwF6P";
 const MPL_TOKEN_METADATA_PROGRAM_ID = "metaqbxxUerdq28cj1RbAWkYQm3ybzjb6a8bt518x1s";
 const GLOBAL_ACCOUNT_SEED = "global";
 const MINT_AUTHORITY_SEED = "mint-authority";
@@ -58,7 +58,15 @@ class PumpFunSDK {
       this.provider = provider;
       
       // 初始化Anchor Program对象
-      this.program = new Program(IDL, this.programId, provider);
+      // 使用固定的程序地址
+      const programAddress = "6EF8rrecthR5Dkzon8Nwu78hRvfCKubJ14M5uBEwF6P";
+      this.program = new Program(IDL, new PublicKey(programAddress), provider);
+      
+      // 验证IDL加载
+      if (!IDL) {
+        throw new Error('IDL 加载失败');
+      }
+      console.log('IDL loaded:', !!IDL, 'Address:', programAddress);
       
       // Store key program parameters
       this.mplTokenMetadata = new PublicKey(MPL_TOKEN_METADATA_PROGRAM_ID);
