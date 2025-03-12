@@ -38,14 +38,41 @@ class PumpFunSDK {
     console.log('初始化SDK...');
     
     try {
+      // 确保provider存在
+      if (!provider) {
+        throw new Error('Provider不能为空');
+      }
+      
+      // 检查provider.connection是否存在
+      if (!provider.connection) {
+        throw new Error('Provider必须包含connection属性');
+      }
+      
+      // 检查provider.wallet是否存在
+      if (!provider.wallet) {
+        throw new Error('Provider必须包含wallet属性');
+      }
+      
       // 加载IDL
-      const idl = require('./IDL.json');
+      const idl = require('./IDL/pump-fun.json');
+      console.log('已加载IDL，Program ID:', idl.metadata.address);
       
       // 初始化Program
       this.program = new Program(idl, PROGRAM_ID, provider);
-      this.connection = this.program.provider.connection;
+      
+      // 明确设置connection属性
+      this.connection = provider.connection;
       
       console.log(`SDK初始化成功，Program ID: ${PROGRAM_ID}`);
+      console.log(`使用RPC地址: ${this.connection.rpcEndpoint}`);
+      
+      // 验证provider配置
+      console.log('Provider配置:', {
+        hasConnection: !!provider.connection,
+        hasWallet: !!provider.wallet,
+        hasSendTransaction: !!provider.sendTransaction,
+        commitment: provider.connection.commitment
+      });
     } catch (error) {
       console.error('SDK初始化失败:', error);
       throw error;
@@ -383,17 +410,38 @@ class PumpFunSDK {
 
   // 获取全局账户
   async getGlobalAccount(commitment = DEFAULT_COMMITMENT) {
-    const [globalAccountPDA] = PublicKey.findProgramAddressSync(
-      [Buffer.from(GLOBAL_ACCOUNT_SEED)],
-      new PublicKey(PROGRAM_ID)
-    );
+    try {
+      if (!this.connection) {
+        throw new Error('Connection未初始化');
+      }
+      
+      const [globalAccountPDA] = PublicKey.findProgramAddressSync(
+        [Buffer.from(GLOBAL_ACCOUNT_SEED)],
+        new PublicKey(PROGRAM_ID)
+      );
 
-    const tokenAccount = await this.connection.getAccountInfo(
-      globalAccountPDA,
-      commitment
-    );
+      console.log(`查询全局账户: ${globalAccountPDA.toBase58()}`);
+      
+      // 测试连接状态
+      const blockHeight = await this.connection.getBlockHeight();
+      console.log('当前区块高度:', blockHeight);
+      
+      const tokenAccount = await this.connection.getAccountInfo(
+        globalAccountPDA,
+        commitment
+      );
+      
+      if (!tokenAccount) {
+        throw new Error(`无法获取全局账户信息: ${globalAccountPDA.toBase58()}`);
+      }
+      
+      console.log('成功获取账户数据，大小:', tokenAccount.data.length);
 
-    return GlobalAccount.fromBuffer(tokenAccount.data);
+      return GlobalAccount.fromBuffer(tokenAccount.data);
+    } catch (error) {
+      console.error(`获取全局账户失败: ${error.message}`);
+      throw error;
+    }
   }
 
   // 获取债券曲线PDA
