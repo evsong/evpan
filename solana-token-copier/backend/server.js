@@ -114,21 +114,49 @@ app.post('/api/monitoring/start', async (req, res) => {
     
     console.log('尝试启动监控...');
     try {
+      // 在每次尝试启动之前，确保没有进程在运行
+      if (monitor) {
+        try {
+          monitor.stop();
+          monitor = null;
+        } catch (stopErr) {
+          console.error(`停止旧监控失败: ${stopErr.message}`);
+          // 继续，不要让这阻止新监控的启动
+        }
+      }
+      
+      // 启动新监控
       monitor = await startMonitoring((token) => {
-        // 通过WebSocket推送新发现的代币
-        io.emit('newToken', token);
+        try {
+          // 通过WebSocket推送新发现的代币
+          io.emit('newToken', token);
+          console.log(`已向客户端推送新代币: ${token.name}`);
+        } catch (emitErr) {
+          console.error(`WebSocket推送失败: ${emitErr.message}`);
+        }
       });
       
       isMonitoring = true;
       console.log('监控启动成功');
       res.json({ success: true });
     } catch (monitorError) {
+      monitor = null;
+      isMonitoring = false;
       console.error(`监控启动失败: ${monitorError.message}`);
-      res.status(500).json({ success: false, error: monitorError.message });
+      // 返回更详细的错误信息
+      return res.status(500).json({ 
+        success: false, 
+        error: monitorError.message,
+        details: '启动监控时出错，请检查连接配置和RPC服务状态'
+      });
     }
   } catch (error) {
     console.error(`处理请求失败: ${error.message}`);
-    res.status(500).json({ success: false, error: error.message });
+    res.status(500).json({ 
+      success: false, 
+      error: error.message,
+      details: '处理监控请求时出错'
+    });
   }
 });
 

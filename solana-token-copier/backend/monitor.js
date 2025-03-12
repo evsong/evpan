@@ -1,6 +1,7 @@
 const { PumpFunSDK } = require('../sdk');
 const { AnchorProvider } = require('@coral-xyz/anchor');
 const { Connection, Keypair } = require('@solana/web3.js');
+const NodeWallet = require('@coral-xyz/anchor/dist/cjs/nodewallet').default;
 const { handleNewToken } = require('./metadata');
 const config = require('./config');
 
@@ -26,18 +27,18 @@ async function startMonitoring(onTokenDiscovered) {
       throw new Error(`无法连接到Solana网络: ${connErr.message}`);
     }
     
-    // 创建虚拟钱包（只用于监听，不会进行签名）
-    const wallet = {
-      publicKey: Keypair.generate().publicKey,
-      signTransaction: () => Promise.reject(new Error('这个钱包只用于监听')),
-      signAllTransactions: () => Promise.reject(new Error('这个钱包只用于监听'))
-    };
+    // 创建有效的wallet对象 - 使用NodeWallet，与pumpBuildTx保持一致
+    const wallet = new NodeWallet(Keypair.generate());
     
-    // 创建Provider
+    // 创建Provider，确保设置所有必要的选项
     const provider = new AnchorProvider(
       connection, 
       wallet, 
-      { commitment: 'confirmed' }
+      { 
+        commitment: 'confirmed',
+        preflightCommitment: 'confirmed',
+        skipPreflight: false
+      }
     );
     
     // 初始化SDK
@@ -49,22 +50,31 @@ async function startMonitoring(onTokenDiscovered) {
     
     // 监听创建事件
     console.log('设置事件监听器...');
-    const createEventId = sdk.addEventListener("createEvent", async (event) => {
-      console.log(`发现新代币: ${event.name} (${event.symbol})`);
-      console.log(`Mint地址: ${event.mint.toString()}`);
-      console.log(`URI: ${event.uri}`);
+    try {
+      const createEventId = sdk.addEventListener("createEvent", async (event) => {
+        try {
+          console.log(`发现新代币: ${event.name} (${event.symbol})`);
+          console.log(`Mint地址: ${event.mint.toString()}`);
+          console.log(`URI: ${event.uri}`);
+          
+          // 处理新代币
+          const tokenInfo = await handleNewToken(event);
+          
+          // 触发回调
+          if (onTokenDiscovered && tokenInfo) {
+            onTokenDiscovered(tokenInfo);
+          }
+        } catch (eventErr) {
+          console.error(`处理代币事件失败: ${eventErr.message}`);
+        }
+      });
       
-      // 处理新代币
-      const tokenInfo = await handleNewToken(event);
-      
-      // 触发回调
-      if (onTokenDiscovered && tokenInfo) {
-        onTokenDiscovered(tokenInfo);
-      }
-    });
-    
-    eventIds.push(createEventId);
-    console.log('监听器设置成功，ID:', createEventId);
+      eventIds.push(createEventId);
+      console.log('监听器设置成功，ID:', createEventId);
+    } catch (listenerErr) {
+      console.error(`设置事件监听器失败: ${listenerErr.message}`);
+      throw new Error(`无法设置事件监听器: ${listenerErr.message}`);
+    }
     
     // 返回控制对象
     return { 

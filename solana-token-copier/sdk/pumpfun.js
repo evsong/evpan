@@ -401,6 +401,12 @@ class PumpFunSDK {
         throw new Error('Program尚未初始化');
       }
       
+      // 确保connection和provider已正确初始化
+      if (!this.connection || !this.program.provider) {
+        throw new Error('连接或Provider未正确初始化');
+      }
+      
+      // 直接返回监听结果，不要包装回调
       return this.program.addEventListener(
         eventType,
         (event, slot, signature) => {
@@ -425,14 +431,15 @@ class PumpFunSDK {
                 return;
             }
             
+            // 触发回调
             callback(processedEvent, slot, signature);
           } catch (error) {
-            console.error(`事件处理失败: ${error.message}`);
+            console.error(`事件处理失败: ${error.message}`, error);
           }
         }
       );
     } catch (error) {
-      console.error(`添加事件监听器失败: ${error.message}`);
+      console.error(`添加事件监听器失败: ${error.message}`, error);
       throw error;
     }
   }
