@@ -394,37 +394,68 @@ class PumpFunSDK {
 
   // 添加事件监听器
   addEventListener(eventType, callback) {
-    return this.program.addEventListener(
-      eventType,
-      (event, slot, signature) => {
-        let processedEvent;
-        
-        switch (eventType) {
-          case "createEvent":
-            processedEvent = this.toCreateEvent(event);
-            break;
-          case "tradeEvent":
-            processedEvent = this.toTradeEvent(event);
-            break;
-          case "completeEvent":
-            processedEvent = this.toCompleteEvent(event);
-            break;
-          case "setParamsEvent":
-            processedEvent = this.toSetParamsEvent(event);
-            break;
-          default:
-            console.error("未处理的事件类型:", eventType);
-            return;
-        }
-        
-        callback(processedEvent, slot, signature);
+    try {
+      console.log(`添加事件监听器: ${eventType}`);
+      
+      if (!this.program) {
+        throw new Error('Program尚未初始化');
       }
-    );
+      
+      return this.program.addEventListener(
+        eventType,
+        (event, slot, signature) => {
+          try {
+            let processedEvent;
+            
+            switch (eventType) {
+              case "createEvent":
+                processedEvent = this.toCreateEvent(event);
+                break;
+              case "tradeEvent":
+                processedEvent = this.toTradeEvent(event);
+                break;
+              case "completeEvent":
+                processedEvent = this.toCompleteEvent(event);
+                break;
+              case "setParamsEvent":
+                processedEvent = this.toSetParamsEvent(event);
+                break;
+              default:
+                console.error("未处理的事件类型:", eventType);
+                return;
+            }
+            
+            callback(processedEvent, slot, signature);
+          } catch (error) {
+            console.error(`事件处理失败: ${error.message}`);
+          }
+        }
+      );
+    } catch (error) {
+      console.error(`添加事件监听器失败: ${error.message}`);
+      throw error;
+    }
   }
 
   // 移除事件监听器
   removeEventListener(eventId) {
-    this.program.removeEventListener(eventId);
+    try {
+      console.log(`移除事件监听器: ${eventId}`);
+      
+      if (!this.program) {
+        throw new Error('Program尚未初始化');
+      }
+      
+      if (!eventId) {
+        throw new Error('未提供有效的事件ID');
+      }
+      
+      this.program.removeEventListener(eventId);
+      console.log(`事件监听器已移除: ${eventId}`);
+    } catch (error) {
+      console.error(`移除事件监听器失败: ${error.message}`);
+      throw error;
+    }
   }
 
   // 事件转换方法

@@ -112,15 +112,23 @@ app.post('/api/monitoring/start', async (req, res) => {
       return res.json({ success: true, message: '监控已经在运行中' });
     }
     
-    monitor = await startMonitoring((token) => {
-      // 通过WebSocket推送新发现的代币
-      io.emit('newToken', token);
-    });
-    
-    isMonitoring = true;
-    res.json({ success: true });
+    console.log('尝试启动监控...');
+    try {
+      monitor = await startMonitoring((token) => {
+        // 通过WebSocket推送新发现的代币
+        io.emit('newToken', token);
+      });
+      
+      isMonitoring = true;
+      console.log('监控启动成功');
+      res.json({ success: true });
+    } catch (monitorError) {
+      console.error(`监控启动失败: ${monitorError.message}`);
+      res.status(500).json({ success: false, error: monitorError.message });
+    }
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    console.error(`处理请求失败: ${error.message}`);
+    res.status(500).json({ success: false, error: error.message });
   }
 });
 
