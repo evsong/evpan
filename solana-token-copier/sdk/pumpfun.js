@@ -421,31 +421,55 @@ class PumpFunSDK {
     try {
       console.log(`添加事件监听器: ${eventType}`);
       
-      // 完全简化addEventListener方法，与pumpBuildTx保持一致
+      // 验证program和connection
+      if (!this.program) {
+        throw new Error('Program未初始化');
+      }
+      
+      if (!this.program.provider || !this.program.provider.connection) {
+        throw new Error('Provider或Connection未正确初始化');
+      }
+      
+      // 验证WebSocket配置
+      const wsEndpoint = this.program.provider.connection._rpcWebSocket?.endpoint || 
+                        this.program.provider.connection._wsEndpoint;
+      
+      if (!wsEndpoint) {
+        throw new Error('WebSocket端点未配置');
+      }
+      
+      console.log('使用WebSocket端点:', wsEndpoint);
+      
+      // 添加事件监听器
       return this.program.addEventListener(
         eventType,
         (event, slot, signature) => {
+          console.log(`收到事件 ${eventType}:`, event);
           let processedEvent;
           
-          switch (eventType) {
-            case "createEvent":
-              processedEvent = this.toCreateEvent(event);
-              break;
-            case "tradeEvent":
-              processedEvent = this.toTradeEvent(event);
-              break;
-            case "completeEvent":
-              processedEvent = this.toCompleteEvent(event);
-              break;
-            case "setParamsEvent":
-              processedEvent = this.toSetParamsEvent(event);
-              break;
-            default:
-              console.error("未处理的事件类型:", eventType);
-              return;
+          try {
+            switch (eventType) {
+              case "createEvent":
+                processedEvent = this.toCreateEvent(event);
+                break;
+              case "tradeEvent":
+                processedEvent = this.toTradeEvent(event);
+                break;
+              case "completeEvent":
+                processedEvent = this.toCompleteEvent(event);
+                break;
+              case "setParamsEvent":
+                processedEvent = this.toSetParamsEvent(event);
+                break;
+              default:
+                console.error("未处理的事件类型:", eventType);
+                return;
+            }
+            
+            callback(processedEvent, slot, signature);
+          } catch (processError) {
+            console.error(`处理事件失败: ${processError.message}`, processError);
           }
-          
-          callback(processedEvent, slot, signature);
         }
       );
     } catch (error) {

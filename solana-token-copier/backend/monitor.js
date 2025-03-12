@@ -14,12 +14,18 @@ async function startMonitoring(onTokenDiscovered) {
   try {
     console.log('开始监听新代币创建事件...');
     
-    // 简化Solana连接创建，不显式指定WebSocket端点
+    // 创建Solana连接，确保包含WebSocket配置
+    const rpcUrl = config.rpcUrl;
+    const wsUrl = rpcUrl.replace('https', 'wss');
+    console.log('RPC URL:', rpcUrl);
+    console.log('WebSocket URL:', wsUrl);
+    
     const connection = new Connection(
-      config.rpcUrl,
+      rpcUrl,
       { 
         commitment: 'finalized',
-        wsEndpoint: config.rpcUrl.replace('https', 'wss') // 添加WebSocket配置
+        wsEndpoint: wsUrl,
+        confirmTransactionInitialTimeout: 60000
       }
     );
     
@@ -28,6 +34,14 @@ async function startMonitoring(onTokenDiscovered) {
     try {
       const blockHeight = await connection.getBlockHeight();
       console.log(`连接成功，当前区块高度: ${blockHeight}`);
+      
+      // 测试WebSocket连接
+      console.log('测试WebSocket连接...');
+      const sub = connection.onSlotChange(() => {});
+      if (sub) {
+        connection.removeSlotChangeListener(sub);
+        console.log('WebSocket连接测试成功');
+      }
     } catch (connErr) {
       console.error(`Solana连接测试失败: ${connErr.message}`);
       throw new Error(`无法连接到Solana网络: ${connErr.message}`);
@@ -36,11 +50,17 @@ async function startMonitoring(onTokenDiscovered) {
     // 创建有效的wallet对象
     const wallet = new NodeWallet(Keypair.generate());
     
-    // 创建Provider - 使用简单配置，与pumpBuildTx保持一致
+    // 创建Provider - 添加完整的配置
     const provider = new AnchorProvider(
       connection, 
       wallet, 
-      { commitment: 'finalized' }
+      { 
+        commitment: 'finalized',
+        preflightCommitment: 'finalized',
+        skipPreflight: false,
+        wsEndpoint: wsUrl,
+        confirmTransactionInitialTimeout: 60000
+      }
     );
     
     // 初始化SDK
