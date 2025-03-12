@@ -1,93 +1,75 @@
-const { struct, bool, u64 } = require('@coral-xyz/borsh');
+const { struct, bool, u64, publicKey } = require('@coral-xyz/borsh');
+const { PublicKey } = require('@solana/web3.js');
 
 class BondingCurveAccount {
   constructor(
     discriminator,
-    virtualTokenReserves,
+    initialized,
+    mint,
     virtualSolReserves,
-    realTokenReserves,
+    virtualTokenReserves,
     realSolReserves,
-    tokenTotalSupply,
-    complete
+    realTokenReserves
   ) {
     this.discriminator = discriminator;
-    this.virtualTokenReserves = virtualTokenReserves;
+    this.initialized = initialized || false;
+    this.mint = mint;
     this.virtualSolReserves = virtualSolReserves;
-    this.realTokenReserves = realTokenReserves;
+    this.virtualTokenReserves = virtualTokenReserves;
     this.realSolReserves = realSolReserves;
-    this.tokenTotalSupply = tokenTotalSupply;
-    this.complete = complete;
+    this.realTokenReserves = realTokenReserves;
   }
 
   // 计算买入价格
-  getBuyPrice(amount) {
-    if (this.complete) {
-      throw new Error("曲线已完成");
-    }
-
-    if (amount <= 0n) {
-      return 0n;
-    }
-
-    // 计算虚拟储备乘积
-    let n = this.virtualSolReserves * this.virtualTokenReserves;
-
-    // 计算买入后的虚拟SOL储备
-    let i = this.virtualSolReserves + amount;
-
-    // 计算买入后的虚拟代币储备
-    let r = n / i + 1n;
-
-    // 计算可买入的代币数量
-    let s = this.virtualTokenReserves - r;
-
-    // 返回可买入的最大数量
-    return s < this.realTokenReserves ? s : this.realTokenReserves;
+  getBuyPrice(solAmount) {
+    const k = this.virtualSolReserves * this.virtualTokenReserves;
+    const newSolReserves = this.virtualSolReserves + solAmount;
+    const newTokenReserves = k / newSolReserves;
+    const tokenAmount = this.virtualTokenReserves - newTokenReserves;
+    
+    return tokenAmount < this.realTokenReserves 
+      ? tokenAmount 
+      : this.realTokenReserves;
   }
 
   // 计算卖出价格
-  getSellPrice(amount, feeBasisPoints) {
-    if (this.complete) {
-      throw new Error("曲线已完成");
-    }
-
-    if (amount <= 0n) {
+  getSellPrice(tokenAmount, feeBasisPoints) {
+    if (tokenAmount > this.realTokenReserves) {
       return 0n;
     }
 
-    // 计算卖出可获得的SOL数量
-    let n =
-      (amount * this.virtualSolReserves) / (this.virtualTokenReserves + amount);
+    const k = this.virtualSolReserves * this.virtualTokenReserves;
+    const newTokenReserves = this.virtualTokenReserves - tokenAmount;
+    const newSolReserves = k / newTokenReserves;
+    let solAmount = newSolReserves - this.virtualSolReserves;
 
-    // 计算手续费
-    let a = (n * feeBasisPoints) / 10000n;
+    // 应用手续费
+    solAmount = solAmount - (solAmount * feeBasisPoints) / 10000n;
 
-    // 返回扣除手续费后的金额
-    return n - a;
+    return solAmount;
   }
 
   // 从缓冲区解析账户数据
   static fromBuffer(buffer) {
-    const structure = struct([
-      u64("discriminator"),
-      u64("virtualTokenReserves"),
-      u64("virtualSolReserves"),
-      u64("realTokenReserves"),
-      u64("realSolReserves"),
-      u64("tokenTotalSupply"),
-      bool("complete"),
+    const LAYOUT = struct([
+      u64('discriminator'),
+      bool('initialized'),
+      publicKey('mint'),
+      u64('virtualSolReserves'),
+      u64('virtualTokenReserves'),
+      u64('realSolReserves'),
+      u64('realTokenReserves'),
     ]);
 
-    let value = structure.decode(buffer);
-    
+    const data = LAYOUT.decode(buffer);
     return new BondingCurveAccount(
-      BigInt(value.discriminator),
-      BigInt(value.virtualTokenReserves),
-      BigInt(value.virtualSolReserves),
-      BigInt(value.realTokenReserves),
-      BigInt(value.realSolReserves),
-      BigInt(value.tokenTotalSupply),
-      value.complete
+      BigInt(data.discriminator),
+      data.initialized,
+      data.mint,
+      BigInt(data.virtualSolReserves),
+      BigInt(data.virtualTokenReserves),
+      BigInt(data.realSolReserves),
+      BigInt(data.realTokenReserves)
     );
   }
 }
